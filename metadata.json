@@ -1,0 +1,14 @@
+{
+  "name": "VoteWise: Election Education Assistant",
+  "description": "An interactive, AI-powered election guide to simplify voter registration, eligibility checks, and the voting process. Empowering citizens with accurate information and real-time guidance.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "AI-powered assistance",
+    "Interactive eligibility checker",
+    "Election timeline tracker",
+    "Document checklist",
+    "Multilingual support"
+  ]
+}
