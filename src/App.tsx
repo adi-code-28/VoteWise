@@ -1,5 +1,6 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import confetti from 'canvas-confetti';
 import { 
   CheckCircle2, 
   Circle, 
@@ -22,7 +23,10 @@ import {
   TowerControl as Castle,
   Heart,
   Volume2,
-  Scale
+  Scale,
+  Sparkles,
+  Command,
+  Languages
 } from 'lucide-react';
 import React, { useState, useEffect, useRef } from 'react';
 import { getChatResponse, explainEligibility } from './services/gemini';
@@ -262,11 +266,15 @@ const TRANSLATIONS = {
 // --- Components ---
 
 const ProgressBar = ({ progress }: { progress: number }) => (
-  <div className="w-full bg-chakra/5 rounded-lg h-3 overflow-hidden p-0.5 border border-chakra/10">
-    <div 
-      style={{ width: `${progress}%` }}
-      className="h-full rounded-md patriotic-gradient shadow-[0_0_10px_rgba(255,153,51,0.3)]"
-    />
+  <div className="w-full bg-chakra/5 rounded-full h-3 overflow-hidden p-1 border border-chakra/10 shadow-inner">
+    <motion.div 
+      initial={{ width: 0 }}
+      animate={{ width: `${progress}%` }}
+      transition={{ duration: 1, ease: "easeOut" }}
+      className="h-full rounded-full patriotic-gradient shadow-[0_0_15px_rgba(255,153,51,0.4)] relative"
+    >
+      <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.4),transparent)] animate-[shimmer_2s_infinite]" />
+    </motion.div>
   </div>
 );
 
@@ -347,7 +355,12 @@ const IndianMapShape = ({ className }: { className?: string }) => (
 
 const IndianHeritageBackground = ({ variant = "full" }: { variant?: "full" | "minimal" }) => (
   <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-    <div className="absolute inset-0 bg-gradient-to-br from-saffron/5 via-white to-green/5 opacity-50" />
+    <div className="absolute inset-0 bg-gradient-to-br from-saffron/10 via-white to-green/5 opacity-40" />
+    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-full opacity-5 pointer-events-none">
+       <div className="absolute top-[10%] left-[10%] w-64 h-64 border-[40px] border-chakra rounded-full opacity-10 blur-xl" />
+       <div className="absolute bottom-[20%] right-[15%] w-96 h-96 border-[60px] border-saffron rounded-full opacity-10 blur-2xl" />
+    </div>
+    <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: 'radial-gradient(#000080 0.5px, transparent 0.5px)', backgroundSize: '24px 24px' }} />
   </div>
 );
 
@@ -525,118 +538,126 @@ const VoterTypeModal = ({ progress, onSave, lang }: { progress: UserProgress, on
   const [isCitizen, setIsCitizen] = useState(progress.isCitizen !== false);
   
   const isUnderage = age !== '' && parseInt(age) < 18;
+  const canContinue = userName.trim() !== '' && constituency.trim() !== '' && voterType !== null && age !== '' && !isUnderage && isCitizen;
 
   return (
-    <div 
-      className="fixed inset-0 z-[100] bg-chakra/40 backdrop-blur-md flex items-center justify-center p-4"
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="fixed inset-0 z-[100] bg-chakra/60 backdrop-blur-xl flex items-center justify-center p-4 overflow-y-auto"
     >
-      <div 
-        className="bg-white rounded-[3rem] shadow-2xl w-full max-w-xl p-8 md:p-12 overflow-hidden relative"
+      <motion.div 
+        initial={{ scale: 0.9, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        className="bg-white rounded-[4rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.15)] w-full max-w-2xl p-12 md:p-16 overflow-hidden relative border border-chakra/5 my-8"
       >
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-saffron/10 rounded-2xl blur-3xl -mr-16 -mt-16" />
+        <div className="absolute top-0 right-0 w-64 h-64 bg-saffron/10 rounded-full blur-[100px] -mr-32 -mt-32" />
         
-        <div className="text-center space-y-4 mb-12">
-           <div className="inline-flex gap-1.5 mb-2">
-              <div className="w-3 h-1 bg-saffron rounded-sm" />
-              <div className="w-8 h-1 bg-chakra rounded-sm" />
-              <div className="w-3 h-1 bg-green rounded-sm" />
+        <div className="text-center space-y-6 mb-14 relative z-10">
+           <div className="flex justify-center gap-2 mb-4">
+              <div className="w-2 h-2 bg-saffron rounded-full" />
+              <div className="w-2 h-2 bg-chakra rounded-full opacity-20" />
+              <div className="w-2 h-2 bg-green rounded-full opacity-10" />
            </div>
-           <h2 className="font-display font-black text-4xl text-chakra leading-tight">{t.voterTypeTitle}</h2>
-           <p className="text-chakra/80 font-medium">{t.voterTypeSub}</p>
+           <h2 className="font-display font-black text-4xl md:text-5xl text-chakra leading-[1.1] tracking-tight">{t.voterTypeTitle}</h2>
+           <p className="text-chakra/50 font-medium text-lg">{t.voterTypeSub}</p>
         </div>
 
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-10 relative z-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <button 
               onClick={() => setVoterType('first-time')}
-              className={`p-6 rounded-3xl border-2 text-left group transition-all hover:shadow-xl hover:-translate-y-1 ${voterType === 'first-time' ? 'border-saffron bg-saffron/5 shadow-xl shadow-saffron/10' : 'border-chakra/10 bg-white'}`}
+              className={`p-8 rounded-[3rem] border-2 text-left group transition-all duration-500 relative ${voterType === 'first-time' ? 'border-saffron bg-saffron/5 shadow-xl shadow-saffron/10' : 'border-chakra/5 bg-gray-50/50 hover:bg-white hover:shadow-xl'}`}
             >
-              <div className="w-12 h-12 bg-saffron/10 rounded-2xl flex items-center justify-center text-saffron mb-4">
-                <Landmark size={24} />
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 transition-all duration-500 ${voterType === 'first-time' ? 'bg-saffron text-white shadow-lg shadow-saffron/20' : 'bg-chakra/5 text-chakra'}`}>
+                <Landmark size={28} />
               </div>
-              <h3 className="font-black text-chakra mb-1">{t.firstTime}</h3>
-              <p className="text-xs text-chakra font-black">Step-by-step guidance</p>
+              <h3 className="font-black text-chakra text-xl mb-1">{t.firstTime}</h3>
+              <p className="text-[10px] text-chakra/40 font-black uppercase tracking-widest">Step-by-step roadmap</p>
+              {voterType === 'first-time' && (
+                <div className="absolute top-8 right-8">
+                  <CheckCircle2 size={24} className="text-saffron" />
+                </div>
+              )}
             </button>
             <button 
               onClick={() => setVoterType('returning')}
-              className={`p-6 rounded-3xl border-2 text-left group transition-all hover:shadow-xl hover:-translate-y-1 ${voterType === 'returning' ? 'border-green bg-green/5 shadow-xl shadow-green/10' : 'border-chakra/10 bg-white'}`}
+              className={`p-8 rounded-[3rem] border-2 text-left group transition-all duration-500 relative ${voterType === 'returning' ? 'border-green bg-green/5 shadow-xl shadow-green/10' : 'border-chakra/10 bg-gray-50/50 hover:bg-white hover:shadow-xl'}`}
             >
-              <div className="w-12 h-12 bg-green/10 rounded-2xl flex items-center justify-center text-green mb-4">
-                <CheckCircle2 size={24} />
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 transition-all duration-500 ${voterType === 'returning' ? 'bg-green text-white shadow-lg shadow-green/20' : 'bg-chakra/5 text-chakra'}`}>
+                <CheckCircle2 size={28} />
               </div>
-              <h3 className="font-black text-chakra mb-1">{t.returning}</h3>
-              <p className="text-xs text-chakra font-black">Status & updates only</p>
+              <h3 className="font-black text-chakra text-xl mb-1">{t.returning}</h3>
+              <p className="text-[10px] text-chakra/40 font-black uppercase tracking-widest">Status & updates</p>
+              {voterType === 'returning' && (
+                <div className="absolute top-8 right-8">
+                  <CheckCircle2 size={24} className="text-green" />
+                </div>
+              )}
             </button>
           </div>
 
-          <div className="space-y-4 pt-6 border-t-2 border-chakra/10">
-             <input 
-               type="text" 
-               placeholder={t.namePlaceholder}
-               value={userName}
-               onChange={(e) => setUserName(e.target.value)}
-               className="w-full p-5 bg-chakra/5 border-2 border-chakra/5 rounded-2xl outline-none focus:ring-2 focus:ring-chakra text-chakra font-black placeholder:text-chakra/40"
-             />
-             <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <input 
-                    type="text" 
-                    placeholder={t.constituencyPlaceholder}
-                    value={constituency}
-                    onChange={(e) => setConstituency(e.target.value)}
-                    className="w-full p-5 bg-chakra/5 border-2 border-chakra/5 rounded-2xl outline-none focus:ring-2 focus:ring-chakra text-chakra font-black placeholder:text-chakra/40"
-                  />
-                  <p className="text-[10px] text-chakra font-black px-2 uppercase tracking-widest opacity-60">
-                    Voting area
-                  </p>
+          <div className="space-y-6 pt-10 border-t border-chakra/5">
+             <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-chakra/30 px-3">Identity Name</label>
+                <input 
+                  type="text" 
+                  placeholder={t.namePlaceholder}
+                  value={userName}
+                  onChange={(e) => setUserName(e.target.value)}
+                  className="w-full p-6 bg-chakra/5 border-2 border-chakra/5 rounded-[2rem] outline-none focus:ring-4 focus:ring-chakra/5 text-chakra font-black placeholder:text-chakra/20 transition-all text-lg"
+                />
+             </div>
+             <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-1.5">
+                   <label className="text-[10px] font-black uppercase tracking-[0.2em] text-chakra/30 px-3">Constituency</label>
+                   <input 
+                     type="text" 
+                     placeholder={t.constituencyPlaceholder}
+                     value={constituency}
+                     onChange={(e) => setConstituency(e.target.value)}
+                     className="w-full p-6 bg-chakra/5 border-2 border-chakra/5 rounded-[2rem] outline-none focus:ring-4 focus:ring-chakra/5 text-chakra font-black placeholder:text-chakra/20 transition-all"
+                   />
                 </div>
-                <div className="space-y-1">
-                  <input 
-                    type="number" 
-                    placeholder={t.agePlaceholder}
-                    value={age}
-                    onChange={(e) => setAge(e.target.value)}
-                    className={`w-full p-5 bg-chakra/5 border-2 rounded-2xl outline-none focus:ring-2 text-chakra font-black placeholder:text-chakra/40 ${isUnderage ? 'border-red-500 ring-2 ring-red-500' : 'border-chakra/5 focus:ring-chakra'}`}
-                  />
-                   <p className="text-[10px] text-chakra font-black px-2 uppercase tracking-widest opacity-60">
-                    Must be 18+
-                  </p>
+                <div className="space-y-1.5">
+                   <label className="text-[10px] font-black uppercase tracking-[0.2em] text-chakra/30 px-3">Age</label>
+                   <input 
+                     type="number" 
+                     placeholder={t.agePlaceholder}
+                     value={age}
+                     onChange={(e) => setAge(e.target.value)}
+                     className={`w-full p-6 bg-chakra/5 border-2 rounded-[2rem] outline-none transition-all text-chakra font-black placeholder:text-chakra/20 ${isUnderage ? 'border-red-500 ring-4 ring-red-500/10' : 'border-chakra/5 focus:ring-chakra/5'}`}
+                   />
                 </div>
              </div>
 
-             <div className="flex items-center gap-3 p-4 bg-chakra/5 rounded-2xl border-2 border-chakra/5">
-                <input 
-                  type="checkbox" 
-                  id="citizen-check"
-                  checked={isCitizen}
-                  onChange={(e) => setIsCitizen(e.target.checked)}
-                  className="w-5 h-5 accent-chakra"
-                />
-                <label htmlFor="citizen-check" className="text-sm font-black text-chakra cursor-pointer">
+             <div className="flex items-center gap-4 p-5 bg-chakra/5 rounded-[2rem] border border-chakra/5 group cursor-pointer" onClick={() => setIsCitizen(!isCitizen)}>
+                <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${isCitizen ? 'bg-chakra border-chakra text-white' : 'border-chakra/20 bg-white'}`}>
+                   {isCitizen && <CheckCircle2 size={14} />}
+                </div>
+                <label className="text-sm font-black text-chakra flex-1 cursor-pointer">
                    I am a citizen of India
                 </label>
              </div>
              
              {isUnderage && (
-               <div 
-                 className="p-3 bg-red-50 text-red-600 rounded-xl text-xs font-bold flex items-center gap-2"
-               >
-                 <Info size={14} />
+               <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="p-4 bg-red-50 text-red-600 rounded-2xl text-xs font-black flex items-center gap-3">
+                 <Info size={16} />
                  {t.ineligibleAge}
-               </div>
+               </motion.div>
              )}
           </div>
 
           <button 
-            disabled={!userName || !constituency || !voterType || !age || isUnderage}
+            disabled={!canContinue}
             onClick={() => onSave({ userName, constituency, voterType, age: parseInt(age), isCitizen })}
-            className="w-full py-5 bg-chakra text-white rounded-[2rem] font-black uppercase tracking-widest text-sm shadow-xl shadow-chakra/20 flex items-center justify-center gap-2 disabled:opacity-30 disabled:pointer-events-none"
+            className="w-full py-6 bg-chakra text-white rounded-[2.5rem] font-black uppercase tracking-[0.4em] text-xs shadow-2xl shadow-chakra/30 flex items-center justify-center gap-3 disabled:opacity-20 disabled:pointer-events-none hover:scale-[1.02] active:scale-[0.98] transition-all"
           >
-            Continue to Dashboard <ArrowRight size={20} />
+            Mission Deployment <ArrowRight size={20} />
           </button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 
@@ -644,43 +665,55 @@ const VoterTypeModal = ({ progress, onSave, lang }: { progress: UserProgress, on
 
 const DashboardSidebar = ({ currentView, setView, t }: any) => {
   const menuItems = [
-    { id: 'dashboard', icon: <Trophy size={18} />, label: t.dashboard },
-    { id: 'eligibility', icon: <UserCheck size={18} />, label: t.eligibility },
-    { id: 'timeline', icon: <Calendar size={18} />, label: t.timeline },
-    { id: 'checklist', icon: <FileText size={18} />, label: t.checklist },
-    { id: 'booth', icon: <MapPin size={18} />, label: t.booth },
+    { id: 'dashboard', icon: <Command size={18} />, label: t.dashboard, color: 'text-chakra' },
+    { id: 'eligibility', icon: <UserCheck size={18} />, label: t.eligibility, color: 'text-saffron' },
+    { id: 'timeline', icon: <Calendar size={18} />, label: t.timeline, color: 'text-green' },
+    { id: 'checklist', icon: <FileText size={18} />, label: t.checklist, color: 'text-chakra' },
+    { id: 'booth', icon: <MapPin size={18} />, label: t.booth, color: 'text-saffron' },
   ];
 
   return (
-    <div className="hidden lg:flex flex-col w-64 bg-white border-r-2 border-chakra/10 min-h-[calc(100vh-64px)] sticky top-16 p-4 space-y-2 z-20">
-      <div className="px-4 py-8">
-        <p className="text-[10px] font-black text-chakra uppercase tracking-[0.3em] mb-6 opacity-60">Command Center</p>
+    <div className="hidden lg:flex flex-col w-72 bg-white border-r border-chakra/5 min-h-[calc(100vh-64px)] sticky top-16 p-8 space-y-2 z-20 shadow-[20px_0_40px_rgba(0,0,0,0.01)] transition-all">
+      <div className="py-2">
+        <p className="text-[10px] font-black text-chakra/30 uppercase tracking-[0.4em] mb-10 px-4">Mission Console</p>
         <div className="space-y-2">
           {menuItems.map(item => (
-                               <button 
-                                 key={item.id}
-                                 onClick={() => setView(item.id)}
-                                 className={`w-full flex items-center gap-3 px-4 py-4 rounded-2xl font-black text-sm transition-all hover:bg-chakra/10 ${
-                                   currentView === item.id 
-                                     ? 'bg-chakra text-white shadow-xl shadow-chakra/30' 
-                                     : 'text-chakra bg-chakra/5'
-                                 }`}
-                               >
-              {item.icon}
-              {item.label}
+            <button 
+              key={item.id}
+              onClick={() => setView(item.id)}
+              className={`w-full flex items-center justify-between px-5 py-4 rounded-[1.5rem] font-black text-sm transition-all duration-500 group relative overflow-hidden ${
+                currentView === item.id 
+                  ? 'bg-chakra text-white shadow-2xl shadow-chakra/20 scale-[1.02] -translate-y-1' 
+                  : 'text-chakra/60 hover:bg-chakra/5 hover:text-chakra'
+              }`}
+            >
+              <div className="flex items-center gap-4 relative z-10">
+                <span className={`transition-all duration-500 ${currentView === item.id ? 'text-white rotate-[15deg]' : 'text-chakra/30 group-hover:text-chakra group-hover:rotate-[15deg]'}`}>
+                  {item.icon}
+                </span>
+                <span className="tracking-tight">{item.label}</span>
+              </div>
+              {currentView === item.id && (
+                <motion.div 
+                  layoutId="active-nav-glow"
+                  className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/5 to-white/0"
+                  animate={{ x: [-200, 200] }}
+                  transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+                />
+              )}
+              {currentView === item.id && <ChevronRight size={14} className="opacity-40" />}
             </button>
           ))}
         </div>
       </div>
-      
-      <div className="mt-auto p-6 bg-saffron/5 rounded-[2rem] border-2 border-saffron/20">
-        <div className="flex items-center gap-3 mb-3">
-           <div className="w-10 h-10 bg-saffron rounded-xl flex items-center justify-center text-white shadow-lg shadow-saffron/20">
-              <ShieldCheck size={20} />
-           </div>
-           <span className="text-xs font-black text-chakra uppercase tracking-tight">Secure Guide</span>
-        </div>
-        <p className="text-[10px] text-chakra font-black leading-relaxed opacity-60">Your data is stored locally for privacy.</p>
+
+      <div className="mt-auto pt-10 px-4">
+         <div className="p-6 bg-chakra text-white rounded-[2rem] relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-12 -mt-12 group-hover:scale-150 transition-transform duration-700" />
+            <ShieldCheck className="mb-4 text-saffron relative z-10" size={24} />
+            <p className="font-black text-[10px] uppercase tracking-widest mb-1 relative z-10">Protocol Guard</p>
+            <p className="text-[8px] font-bold text-white/60 leading-relaxed relative z-10 uppercase">Identity Verified & Encryption Enabled</p>
+         </div>
       </div>
     </div>
   );
@@ -735,12 +768,17 @@ export default function App() {
   const [eligibilityReport, setEligibilityReport] = useState<string>('');
   const [analyzingEligibility, setAnalyzingEligibility] = useState(false);
 
-  // Global Ineligibility Guard
+  // Global Progress Effect
   useEffect(() => {
-    if (progress.age !== undefined && progress.age < 18 && progress.isEligible !== false) {
-      setProgress(prev => ({ ...prev, isEligible: false }));
+    if (calculateProgress() === 100) {
+      confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#FF9933', '#FFFFFF', '#138808', '#000080']
+      });
     }
-  }, [progress.age, progress.isEligible]);
+  }, [progress.isEligible, progress.hasRegistered, progress.hasRequiredDocs, progress.knowsPollingBooth]);
 
   const checkEligibilityDetailed = async () => {
     if (!progress.age) return;
@@ -942,7 +980,7 @@ export default function App() {
     
     setTimeout(() => {
       // More dynamic results based on query keywords
-      const results = [
+      const results: { name: string, distance: string, addr: string, coords: [number, number] }[] = [
         { name: 'National Public School Booth A', distance: '0.4 km', addr: 'Block 2, Ground Floor', coords: userCoords ? [userCoords.lat + 0.002, userCoords.lng + 0.001] : [12.912, 77.641] },
         { name: 'Community Hall (East Wing)', distance: '1.1 km', addr: 'Sector 3 Entrance', coords: userCoords ? [userCoords.lat - 0.003, userCoords.lng + 0.004] : [12.923, 77.652] },
         { name: 'Government Primary School', distance: '1.4 km', addr: 'Main Street, Near Library', coords: userCoords ? [userCoords.lat + 0.005, userCoords.lng - 0.002] : [12.901, 77.635] },
@@ -999,19 +1037,22 @@ export default function App() {
               </div>
             </div>
 
-          <div className="flex items-center gap-4">
-            <select 
-              value={lang}
-              onChange={(e) => setLang(e.target.value as Language)}
-              className="px-3 py-1 text-xs font-bold bg-white border border-gray-200 rounded-lg outline-none cursor-pointer focus:ring-1 focus:ring-chakra uppercase tracking-widest"
-            >
-              <option value="en">English</option>
-              <option value="hi">हिन्दी</option>
-              <option value="bn">বাংলা</option>
-              <option value="ta">தமிழ்</option>
-              <option value="mr">मराठी</option>
-            </select>
-          </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-chakra/5 border border-chakra/10 rounded-xl">
+                <Languages size={14} className="text-chakra/40" />
+                <select 
+                  value={lang}
+                  onChange={(e) => setLang(e.target.value as Language)}
+                  className="text-xs font-black bg-transparent outline-none cursor-pointer text-chakra uppercase tracking-widest border-none p-0"
+                >
+                  <option value="en">EN</option>
+                  <option value="hi">HI</option>
+                  <option value="bn">BN</option>
+                  <option value="ta">TA</option>
+                  <option value="mr">MR</option>
+                </select>
+              </div>
+            </div>
         </div>
       </header>
                       {/* Main Content Area */}
@@ -1123,7 +1164,7 @@ export default function App() {
                              ].map((step) => (
                                <button 
                                  key={step.id}
-                                 onClick={() => step.toggle ? setProgress(p => ({ ...p, hasRegistered: !p.hasRegistered })) : setView(step.id)}
+                                 onClick={() => step.toggle ? setProgress(p => ({ ...p, hasRegistered: !p.hasRegistered })) : setView(step.id as any)}
                                  className={`p-6 rounded-[2rem] border-2 text-left flex gap-5 group relative overflow-hidden transition-all hover:shadow-2xl hover:-translate-y-1 ${
                                    step.done 
                                      ? 'bg-green/5 border-green/30' 
@@ -1517,97 +1558,7 @@ export default function App() {
                   {[
                     {
                       title: "Voter Identification",
-                      icon: <ShieldCheck className="text-saffron" />,
-                      points: [
-                        "Carry your Voter ID (EPIC) card to the polling station.",
-                        "If you don't have EPIC, you can use 12 alternative documents like Aadhaar, PAN, or Passport.",
-                        "Ensure your name is in the electoral roll before heading out."
-                      ]
-                    },
-                    {
-                      title: "Polling Station Protocol",
-                      icon: <MapPin className="text-green" />,
-                      points: [
-                        "First polling officer checks your name and ID proof.",
-                        "Second officer marks your finger with indelible ink and takes your signature.",
-                        "Third officer resets the EVM for you to vote."
-                      ]
-                    },
-                    {
-                      title: "Voting Process (EVM/VVPAT)",
-                      icon: <Info className="text-chakra" />,
-                      points: [
-                        "Press the blue button next to your candidate's symbol.",
-                        "A red light will glow next to the button you pressed.",
-                        "Check the VVPAT window for 7 seconds to verify your vote slip."
-                      ]
-                    },
-                    {
-                      title: "Model Code of Conduct",
-                      icon: <Landmark className="text-saffron" />,
-                      points: [
-                        "No campaigning allowed within 100 meters of the polling station.",
-                        "Cell phones and cameras are strictly prohibited inside the booth.",
-                        "Report any unethical practices to the Presiding Officer immediately."
-                      ]
-                    }
-                  ].map((section, idx) => (
-                    <div key={idx} className="p-8 bg-white rounded-[2.5rem] border-2 border-chakra/5 shadow-sm space-y-6">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-chakra/5 rounded-xl flex items-center justify-center border border-chakra/10">
-                          {section.icon}
-                        </div>
-                        <h3 className="text-xl font-black text-chakra">{section.title}</h3>
-                      </div>
-                      <ul className="space-y-3">
-                        {section.points.map((p, i) => (
-                          <li key={i} className="flex gap-3 text-sm text-chakra font-black leading-relaxed">
-                            <div className="w-2 h-2 bg-saffron rounded-full mt-1.5 shrink-0 shadow-sm" />
-                            {p}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="p-8 bg-chakra text-white rounded-[3rem] shadow-2xl relative overflow-hidden">
-                   <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32" />
-                   <h3 className="text-2xl font-black mb-4 relative z-10">Important Notice</h3>
-                   <p className="text-white/80 leading-relaxed relative z-10 font-medium">
-                     Voting is both your right and responsibility. Ensure you are well-informed and contribute to the largest democratic exercise on Earth. For any assistance, you can also use the helpline number <span className="text-saffron font-black">1950</span>.
-                   </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {view === 'booth' && (
-            <div 
-              className="max-w-5xl mx-auto space-y-8"
-            >
-               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 text-center md:text-left">
-                  <div className="space-y-4">
-                    <button 
-                      onClick={() => setView('dashboard')}
-                      className="flex items-center gap-2 text-chakra font-bold mx-auto md:mx-0 hover:translate-x-1 transition-all"
-                      aria-label={t.back}
-                    >
-                      <ArrowLeft size={20} />
-                      {t.back}
-                    </button>
-                    <div>
-                      <h2 className="font-display font-black text-4xl text-chakra">Polling Booth Locator</h2>
-                      <p className="text-chakra font-black uppercase tracking-tight text-sm">Enter your location to find the nearest voting center</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  <div className="lg:col-span-1 space-y-6">
-                    <div className="p-6 bg-white rounded-3xl shadow-sm border-2 border-chakra/10 space-y-4">
-                      <label className="block font-black text-chakra uppercase tracking-widest text-[10px]">Your Location</label>
-                      <div className="relative">
+                      icon: <ShieldCheck className="tex                      <div className="relative">
                         <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-chakra" size={18} />
                         <input 
                           type="text" 
@@ -1635,161 +1586,92 @@ export default function App() {
 
                       {foundBooths.length > 0 && (
                         <div 
-                          className="space-y-4"
-                        >
-                          <h4 className="font-black text-sm text-chakra uppercase tracking-widest px-2">Nearest Hubs Found</h4>
-                          {foundBooths.map((b, i) => (
-                            <button 
-                              key={i}
-                              onClick={() => {
-                                setProgress(p => ({ ...p, knowsPollingBooth: true }));
-                                setSelectedBooth(i);
-                              }}
-                              className={`w-full p-5 rounded-2xl border-2 text-left group transition-all ${selectedBooth === i ? 'bg-chakra/5 border-chakra shadow-inner' : 'bg-white border-chakra/10 hover:border-chakra/40'}`}
-                            >
-                              <div className="flex justify-between items-start mb-1">
-                                <span className={`font-black text-lg ${selectedBooth === i ? 'text-chakra' : 'text-chakra'}`}>{b.name}</span>
-                                <span className="text-[10px] font-black text-white bg-saffron px-3 py-1 rounded-full shadow-lg shadow-saffron/20">{b.distance}</span>
-                              </div>
-                              <p className="text-xs text-chakra font-bold">{b.addr}</p>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
-                    <div className="p-8 bg-chakra/5 border-2 border-chakra/10 rounded-[2.5rem] space-y-6">
-                      <h4 className="font-black text-chakra text-lg flex items-center gap-2">
-                        <div className="p-2 bg-saffron/10 text-saffron rounded-xl"><Info size={20} /></div>
-                        Election Fact
-                      </h4>
-                      <p className="text-sm text-chakra leading-relaxed font-black">
-                        The Election Commission ensures every voter has a booth within 2km of their residence. Active duty soldiers and expats have special voting provisions.
-                      </p>
-                    </div>
-
-                    <button 
-                      onClick={() => {
-                        if (foundBooths.length > 0) {
-                          setProgress(p => ({ ...p, knowsPollingBooth: true }));
-                          setSelectedBooth(0);
-                        }
-                      }}
-                      className="w-full py-4 bg-green text-white rounded-2xl font-bold bg-green/90 shadow-lg shadow-green/20 flex items-center justify-center gap-2"
-                      aria-label={t.bestChoice}
-                    >
-                      <Trophy size={18} />
-                      {t.bestChoice}
-                    </button>
-                  </div>
-
-                  <div className="lg:col-span-2 h-[550px] bg-white rounded-[2.5rem] overflow-hidden relative border-8 border-white shadow-2xl">
-                    <RealMap 
-                      booths={foundBooths} 
-                      selectedIdx={selectedBooth} 
-                      userCoords={userCoords}
-                      lang={lang}
-                      onSelect={(idx) => {
-                        setSelectedBooth(idx);
-                        setProgress(p => ({ ...p, knowsPollingBooth: true }));
-                      }}
-                    />
-                  </div>
+                   <button 
+                    onClick={() => setChatOpen(false)}
+                    className="p-3 hover:bg-white/10 rounded-xl transition-all"
+                   >
+                     <ArrowRight size={24} />
+                   </button>
                 </div>
-            </div>
-          )}
-      </main>
-    </div>
-    )}
+             </div>
 
-      {/* Floating Chat Assistant */}
-      <div className="fixed bottom-8 right-8 z-[100]">
-          {chatOpen && (
-            <div 
-              className="absolute bottom-20 right-0 w-[90vw] md:w-[400px] h-[600px] max-h-[80vh] glass rounded-3xl shadow-2xl flex flex-col overflow-hidden border-2 border-chakra/10"
-            >
-                    <div className="p-6 bg-chakra text-white flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center"><MessageSquare size={20} /></div>
-                  <div>
-                    <div className="font-display font-bold text-lg leading-none">VoteWise AI</div>
-                    <span className="text-[10px] uppercase font-bold text-white/50 tracking-widest">Active Assistant</span>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setChatOpen(false)}
-                  className="p-1 hover:bg-white/10 rounded-lg"
-                >
-                  <ArrowRight />
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                  <div key="chat-greeting" className="p-4 bg-chakra/5 text-chakra rounded-2xl rounded-tl-none font-black text-sm border-2 border-chakra/10 shadow-sm transition-all animate-in fade-in slide-in-from-left-2">
-                    Hello! I'm your Election Assistant. How can I help you vote today? 🗳️
-                  </div>
-                 {messages.map((m, i) => (
-                   <div 
+             <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-gray-50/50 scroll-smooth">
+                {messages.length === 0 && (
+                   <div className="h-full flex flex-col items-center justify-center text-center opacity-30 py-20 px-8">
+                      <Sparkles size={48} className="mb-6 text-chakra" />
+                      <p className="font-black text-xs uppercase tracking-[0.4em] mb-2 text-chakra">Mission Intel</p>
+                      <p className="text-sm font-medium text-chakra">Ask me about your voting area, local booths, or document requirements.</p>
+                   </div>
+                )}
+                {messages.map((m, i) => (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
                     key={`msg-${i}`} 
                     className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                   >
-                    <div className="group relative flex flex-col gap-1">
-                      <div className={`max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed ${m.role === 'user' ? 'bg-chakra text-white rounded-tr-none ml-auto' : 'bg-chakra/5 text-chakra rounded-tl-none font-medium border border-chakra/10'}`}>
-                        <div className="markdown-body">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {m.text}
-                          </ReactMarkdown>
-                        </div>
-                      </div>
-                      {m.role === 'model' && (
-                        <button 
-                          onClick={() => speak(m.text)}
-                          title="Speak answer"
-                          className="p-1 px-3 text-gray-400 self-start flex items-center gap-1.5 text-[10px] font-bold bg-white/80 rounded-full border border-chakra/5 mt-1 shadow-sm"
-                        >
-                          <Volume2 size={12} /> {lang === 'en' ? 'LISTEN' : (lang === 'hi' ? 'सुनिए' : (lang === 'bn' ? 'শুনুন' : (lang === 'ta' ? 'கேளுங்கள்' : 'एका')))}
-                        </button>
-                      )}
-                    </div>
-                   </div>
-                 ))}
-                 {isTyping && (
-                   <div className="flex justify-start">
-                      <div className="bg-chakra/10 p-4 rounded-2xl rounded-tl-none flex gap-1.5 items-center">
-                        <div className="w-1.5 h-1.5 bg-chakra/40 rounded-full animate-bounce"></div>
-                        <div className="w-1.5 h-1.5 bg-chakra/40 rounded-full animate-bounce [animation-delay:0.2s]"></div>
-                        <div className="w-1.5 h-1.5 bg-chakra/40 rounded-full animate-bounce [animation-delay:0.4s]"></div>
-                      </div>
-                    </div>
-                  )}
-              </div>
-
-              <div className="p-4 bg-white border-t-2 border-chakra/10 flex gap-2">
-                <input 
-                  type="text" 
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                  placeholder={t.askAnything}
-                  className="flex-1 bg-chakra/5 border-2 border-chakra/5 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-saffron text-sm font-black placeholder:text-chakra/30"
-                />
-                <button 
-                  onClick={handleSendMessage}
-                  className="w-12 h-12 bg-chakra text-white rounded-2xl flex items-center justify-center hover:bg-chakra/90 shadow-lg shadow-chakra/10"
-                >
-                  <ArrowRight size={20} />
-                </button>
-              </div>
-            </div>
-          )}
-
-                  <button 
-                    onClick={() => setChatOpen(!chatOpen)}
-                    className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-2xl group ${chatOpen ? 'bg-red-500 text-white rotate-90' : 'bg-chakra text-white'}`}
                   >
-                    {chatOpen ? <ArrowRight /> : <MessageSquare />}
-                    {!chatOpen && <div className="absolute -top-1 -right-1 w-4 h-4 bg-saffron rounded-lg border-2 border-white"></div>}
+                    <div className={`max-w-[90%] p-5 rounded-[2rem] text-sm shadow-sm transition-all ${
+                      m.role === 'user' 
+                        ? 'bg-chakra text-white rounded-tr-none ml-auto shadow-xl shadow-chakra/10' 
+                        : 'bg-white text-chakra border border-chakra/5 rounded-tl-none font-medium'
+                    }`}>
+                      <div className="markdown-body font-bold leading-relaxed">
+                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown>
+                      </div>
+                      <div className="mt-4 flex items-center justify-between opacity-30">
+                         <span className="text-[9px] font-black uppercase tracking-widest">{m.role === 'user' ? 'Verified Citizen' : 'AI ORACLE'}</span>
+                         {m.role === 'model' && (
+                           <button onClick={() => speak(m.text)} className="p-1 hover:text-chakra transition-colors">
+                             <Volume2 size={12} />
+                           </button>
+                         )}
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+                {isTyping && (
+                  <div className="flex justify-start">
+                    <div className="bg-white border border-chakra/5 p-4 rounded-2xl rounded-tl-none flex gap-1.5">
+                       <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 1 }} className="w-1.5 h-1.5 bg-chakra/30 rounded-full" />
+                       <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} className="w-1.5 h-1.5 bg-chakra/30 rounded-full" />
+                       <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} className="w-1.5 h-1.5 bg-chakra/30 rounded-full" />
+                    </div>
+                  </div>
+                )}
+             </div>
+
+             <div className="p-8 bg-white border-t border-chakra/5">
+                <div className="relative group">
+                  <input 
+                    type="text" 
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                    placeholder={t.askAnything}
+                    className="w-full p-5 pr-14 bg-gray-50 border-2 border-chakra/5 rounded-[1.8rem] outline-none focus:ring-4 focus:ring-chakra/5 transition-all text-sm font-black text-chakra placeholder:text-chakra/20 font-display"
+                  />
+                  <button 
+                    onClick={handleSendMessage}
+                    disabled={!input.trim() || isTyping}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 bg-chakra text-white rounded-xl flex items-center justify-center shadow-lg shadow-chakra/20 hover:scale-[1.1] active:scale-[0.9] transition-all disabled:opacity-10"
+                  >
+                    <ArrowRight size={20} />
                   </button>
-      </div>
+                </div>
+             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <motion.button 
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        onClick={() => setChatOpen(!chatOpen)}
+        className={`fixed bottom-8 right-8 w-16 h-16 rounded-[1.5rem] flex items-center justify-center shadow-2xl z-[110] transition-all duration-500 ${chatOpen ? 'bg-red-500 text-white rotate-90' : 'bg-chakra text-white'}`}
+      >
+        {chatOpen ? <ArrowRight size={28} /> : <MessageSquare size={28} />}
+        {!chatOpen && <div className="absolute top-0 right-0 w-4 h-4 bg-saffron rounded-full border-4 border-white animate-pulse" />}
+      </motion.button>
 
       {/* Bottom Mobile Nav */}
       <nav className="fixed bottom-0 w-full z-50 bg-white/90 backdrop-blur-md border-t-2 border-chakra/10 md:hidden">
