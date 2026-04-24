@@ -9,6 +9,7 @@ export interface UserProgress {
   userName?: string;
   constituency?: string;
   age?: number;
+  isCitizen?: boolean;
 }
 
 export interface ElectionDate {

@@ -44,7 +44,7 @@ export async function explainEligibility(age: number, isCitizen: boolean, otherC
       model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
-        systemInstruction: "You are an eligibility expert. Be concise and accurate.",
+        systemInstruction: "You are an Indian election eligibility expert. Provide a detailed, structured eligibility report using markdown (bolding, lists, etc.). Be professional and authoritative. If a value like 't' or numeric garbage is provided for a location, ignore it and treat the context as general Indian elections. Use bold headers for sections.",
       }
     });
     return response.text;

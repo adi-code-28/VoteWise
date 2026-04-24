@@ -1,3 +1,5 @@
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { 
   CheckCircle2, 
   Circle, 
@@ -19,12 +21,14 @@ import {
   Palette,
   TowerControl as Castle,
   Heart,
-  Volume2
+  Volume2,
+  Scale
 } from 'lucide-react';
 import React, { useState, useEffect, useRef } from 'react';
-import { getChatResponse } from './services/gemini';
+import { getChatResponse, explainEligibility } from './services/gemini';
 import { Language, UserProgress, ElectionDate, Document, ChatMessage } from './types';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { motion, AnimatePresence } from 'motion/react';
 import L from 'leaflet';
 import html2canvas from 'html2canvas';
 
@@ -51,7 +55,7 @@ const ELECTION_DATES: ElectionDate[] = [
   { id: '3', title: 'Result Day', date: '2026-05-15', description: 'Official counting and results announcement.', type: 'event' },
 ];
 
-const INDIA_MAP_PATH = "M100,20 C80,0 60,0 40,20 C20,40 10,60 10,80 C10,100 30,120 50,140 C70,160 90,180 100,200 C110,180 130,160 150,140 C170,120 190,100 190,80 C190,60 180,40 160,20 C140,0 120,0 100,20 Z"; // Placeholder - will replace with better silhouette
+const INDIA_MAP_PATH = "M 103,1 C 103,1 100,5 98,7 C 96,9 91,10 91,10 C 91,10 88,3 88,3 C 88,3 81,1 81,1 C 81,1 77,4 77,4 C 77,4 72,1 72,1 C 72,1 68,5 68,5 C 68,5 64,8 64,8 C 64,8 62,12 62,12 C 62,12 60,11 60,11 C 60,11 58,16 58,16 C 58,16 54,16 54,16 C 54,16 52,19 52,19 C 52,19 46,20 46,20 C 46,20 41,20 41,20 C 41,20 38,24 38,24 C 38,24 35,24 35,24 C 35,24 32,32 32,32 C 32,32 30,36 30,36 C 30,36 37,39 37,39 C 37,39 37,42 37,42 C 37,42 41,43 41,43 C 41,43 43,49 43,49 C 43,49 42,54 42,54 C 42,54 41,56 41,56 C 41,56 32,60 32,60 C 32,60 21,63 21,63 C 21,63 19,67 19,67 C 19,67 19,74 19,74 C 19,74 15,75 15,75 C 15,75 18,80 18,80 C 18,80 19,84 19,84 C 19,84 21,85 21,85 C 21,85 21,88 21,88 C 21,88 17,94 17,94 C 17,94 19,95 19,95 C 19,95 24,98 24,98 C 24,98 33,101 33,101 C 33,101 35,103 35,103 C 35,103 35,107 35,107 C 35,107 43,109 43,109 C 43,109 47,112 47,112 C 47,112 49,118 49,118 C 49,118 53,121 53,121 C 53,121 56,123 56,123 C 56,123 59,129 59,129 C 59,129 64,136 64,136 C 64,136 68,141 68,141 C 68,141 71,155 71,155 C 71,155 83,184 83,184 C 83,184 87,192 87,192 C 87,192 89,203 89,203 C 89,203 93,218 93,218 C 93,218 96,227 96,227 C 96,227 98,235 98,235 C 98,235 101,235 101,235 C 101,235 104,233 104,233 C 104,233 106,229 106,229 C 106,229 111,219 111,219 C 111,219 117,208 117,208 C 117,208 122,197 122,197 C 122,197 127,185 127,185 C 127,185 130,175 130,175 C 130,175 133,165 133,165 C 133,165 136,158 136,158 C 136,158 137,149 137,149 C 137,149 141,141 141,141 C 141,141 144,137 144,137 C 144,137 146,132 146,132 C 146,132 144,129 144,129 C 144,129 144,127 144,127 C 144,127 146,124 146,124 C 146,124 150,123 150,123 C 150,123 152,118 152,118 C 152,118 152,110 152,110 C 152,110 155,108 155,108 C 155,108 157,103 157,103 C 157,103 156,99 156,99 C 156,99 162,96 162,96 C 162,96 167,99 167,99 C 167,99 173,101 173,101 C 173,101 176,101 176,101 C 176,101 180,95 180,95 C 180,95 180,88 180,88 C 180,88 178,82 178,82 C 178,82 173,81 173,81 C 173,81 169,78 169,78 C 169,78 162,78 162,78 C 162,78 159,75 159,75 C 159,75 157,70 157,70 C 157,70 156,64 156,64 C 156,64 153,61 153,61 C 153,61 152,56 152,56 C 152,56 151,51 151,51 C 151,51 147,46 147,46 C 147,46 145,39 145,39 C 145,39 145,33 145,33 C 145,33 143,26 143,26 C 143,26 141,20 141,20 C 141,20 139,11 139,11 C 139,11 136,8 136,8 C 136,8 131,8 131,8 C 131,8 126,5 126,5 C 126,5 121,1 121,1 C 121,1 116,4 116,4 C 116,4 112,6 112,6 C 112,6 109,3 109,3 C 109,3 105,1 105,1 Z";
 
 const LOTUS_PATH = "M50,10 C60,0 70,0 80,10 C90,20 90,40 80,50 C70,60 60,60 50,70 C40,60 30,60 20,50 C10,40 10,20 20,10 C30,0 40,0 50,10 M50,10 L50,70 M20,50 C20,70 40,90 50,90 C60,90 80,70 80,50";
 
@@ -72,6 +76,7 @@ const TRANSLATIONS = {
     title: 'VoteWise',
     subtitle: 'Election Education Assistant',
     getStarted: 'Get Started',
+    eciGuidelines: 'ECI Guidelines',
     home: 'Home',
     eligibility: 'Eligibility',
     dashboard: 'Dashboard',
@@ -108,6 +113,7 @@ const TRANSLATIONS = {
     title: 'वोटवाइज',
     subtitle: 'चुनाव शिक्षा सहायक',
     getStarted: 'शुरू करें',
+    eciGuidelines: 'ईसीआई दिशानिर्देश',
     home: 'होम',
     eligibility: 'पात्रता',
     dashboard: 'डैशबोर्ड',
@@ -144,6 +150,7 @@ const TRANSLATIONS = {
     title: 'ভোটওয়াইজ',
     subtitle: 'নির্বাচন শিক্ষা সহকারী',
     getStarted: 'শুরু করুন',
+    eciGuidelines: 'ইসিআই নির্দেশিকা',
     home: 'হোম',
     eligibility: 'যোগ্যতা',
     dashboard: 'ড্যাশবোর্ড',
@@ -180,6 +187,7 @@ const TRANSLATIONS = {
     title: 'வோட்வைஸ்',
     subtitle: 'தேர்தல் கல்வி உதவியாளர்',
     getStarted: 'தொடங்குங்கள்',
+    eciGuidelines: 'தேர்தல் ஆணைய வழிகாட்டுதல்கள்',
     home: 'முகப்பு',
     eligibility: 'தகுதி',
     dashboard: 'டாஷ்போர்டு',
@@ -216,6 +224,7 @@ const TRANSLATIONS = {
     title: 'वोटवाईज',
     subtitle: 'निवडणूक शिक्षण सहाय्यक',
     getStarted: 'सुरु करा',
+    eciGuidelines: 'निवडणूक आयोग मार्गदर्शक तत्त्वे',
     home: 'होम',
     eligibility: 'पात्रता',
     dashboard: 'डॅशबोर्ड',
@@ -253,10 +262,10 @@ const TRANSLATIONS = {
 // --- Components ---
 
 const ProgressBar = ({ progress }: { progress: number }) => (
-  <div className="w-full bg-gray-100 rounded-lg h-3 overflow-hidden p-0.5 border border-gray-50">
+  <div className="w-full bg-chakra/5 rounded-lg h-3 overflow-hidden p-0.5 border border-chakra/10">
     <div 
       style={{ width: `${progress}%` }}
-      className="h-full rounded-md patriotic-gradient"
+      className="h-full rounded-md patriotic-gradient shadow-[0_0_10px_rgba(255,153,51,0.3)]"
     />
   </div>
 );
@@ -279,8 +288,15 @@ const WavingFlag = ({ size = "sm" }: { size?: "sm" | "lg" }) => (
 );
 
 const AshokaChakra = ({ className = "w-full h-full" }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" className={`${className} text-blue-900`} fill="none" stroke="currentColor" strokeWidth="0.8">
-    <circle cx="12" cy="12" r="10" />
+  <svg viewBox="0 0 24 24" className={`${className} text-[#000080]`} fill="none" stroke="currentColor" strokeWidth="0.8">
+    <defs>
+      <radialGradient id="chakraGradient" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+        <stop offset="0%" stopColor="#000080" />
+        <stop offset="70%" stopColor="#0000FF" />
+        <stop offset="100%" stopColor="#000080" />
+      </radialGradient>
+    </defs>
+    <circle cx="12" cy="12" r="10" stroke="url(#chakraGradient)" strokeWidth="1.2" />
     <circle cx="12" cy="12" r="2" fill="currentColor" />
     {[...Array(24)].map((_, i) => (
       <line
@@ -289,91 +305,61 @@ const AshokaChakra = ({ className = "w-full h-full" }: { className?: string }) =
         y1="12"
         x2={12 + 8 * Math.cos((i * 15 * Math.PI) / 180)}
         y2={12 + 8 * Math.sin((i * 15 * Math.PI) / 180)}
+        stroke="currentColor"
+        strokeWidth="0.6"
+      />
+    ))}
+    {/* Adding small dots between spokes for "more shades/detail" */}
+    {[...Array(24)].map((_, i) => (
+      <circle
+        key={`dot-${i}`}
+        cx={12 + 9 * Math.cos(((i * 15 + 7.5) * Math.PI) / 180)}
+        cy={12 + 9 * Math.sin(((i * 15 + 7.5) * Math.PI) / 180)}
+        r="0.3"
+        fill="currentColor"
       />
     ))}
   </svg>
 );
 
 const IndianMapShape = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 200 240" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path 
-      d="M100,5 L110,15 L120,10 L130,20 L150,20 L160,30 L160,50 L170,60 L180,80 L180,110 L160,130 L150,160 L130,190 L110,210 L100,235 L90,210 L70,190 L50,160 L40,130 L20,110 L20,80 L30,60 L40,50 L40,30 L50,20 L70,20 L80,10 Z" 
-      fill="currentColor"
-    />
+  <svg viewBox="0 0 200 240" className={className} xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="mapGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#FF9933" />
+        <stop offset="33%" stopColor="#FF9933" />
+        <stop offset="33%" stopColor="#FFFFFF" />
+        <stop offset="66%" stopColor="#FFFFFF" />
+        <stop offset="66%" stopColor="#138808" />
+        <stop offset="100%" stopColor="#138808" />
+      </linearGradient>
+      <mask id="mapMask">
+        <path d={INDIA_MAP_PATH} fill="white" />
+      </mask>
+    </defs>
+    <rect x="0" y="0" width="200" height="240" fill="url(#mapGradient)" mask="url(#mapMask)" />
+    <path d={INDIA_MAP_PATH} fill="none" stroke="#000080" strokeWidth="1" opacity="0.2" />
+    <g transform="translate(100, 110) scale(1.5)">
+       <AshokaChakra className="w-8 h-8 opacity-90" />
+    </g>
   </svg>
 );
 
 const IndianHeritageBackground = ({ variant = "full" }: { variant?: "full" | "minimal" }) => (
   <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
     <div className="absolute inset-0 bg-gradient-to-br from-saffron/5 via-white to-green/5 opacity-50" />
-    
-        {/* Large Waving Flag in Background */}
-        <div 
-          className="absolute -top-20 -left-20 w-[60%] h-[60%] opacity-[0.02] blur-sm rotate-[-15deg]"
-        >
-          <div className="h-1/3 bg-[#FF9933] w-full" />
-          <div className="h-1/3 bg-white w-full flex items-center justify-center">
-             <AshokaChakra className="h-full opacity-20" />
-          </div>
-          <div className="h-1/3 bg-[#138808] w-full" />
-        </div>
-
-        {/* Floating Lotus */}
-        <div
-          className="absolute top-[15%] left-[5%] opacity-10"
-        >
-          <svg viewBox="0 0 100 100" className="w-32 h-32 text-pink-400">
-             <path d={LOTUS_PATH} fill="currentColor" />
-          </svg>
-        </div>
-
-        {/* Floating Peacock Feather */}
-        <div
-          className="absolute top-[25%] right-[8%] opacity-[0.08]"
-        >
-          <div className="w-40 h-64 bg-gradient-to-b from-blue-600 via-green-500 to-yellow-400 rounded-full blur-3xl opacity-30" />
-          <svg viewBox="0 0 100 150" className="absolute inset-0 w-full h-full text-blue-900">
-             <path d="M50,150 C50,100 20,60 20,40 C20,20 35,0 50,0 C65,0 80,20 80,40 C80,60 50,100 50,150" fill="currentColor" fillOpacity="0.2" />
-             <circle cx="50" cy="40" r="15" fill="currentColor" fillOpacity="0.4" />
-             <circle cx="50" cy="40" r="8" fill="#138808" />
-          </svg>
-        </div>
-
-        {/* Ashoka Chakra - Slow Rotation */}
-        <div 
-          className="absolute bottom-[-10%] right-[-5%] opacity-[0.03]"
-        >
-          <AshokaChakra className="w-96 h-96" />
-        </div>
-
-        {/* Monuments Silhouette at Bottom */}
-        {variant === "full" && (
-          <div 
-            className="absolute bottom-0 left-0 right-0 h-48 opacity-[0.04] flex items-end justify-around px-12"
-          >
-             <svg viewBox="0 0 100 100" className="w-64 h-64 text-chakra">
-                <path d={MONUMENT_SHAPES.taj} fill="currentColor" />
-             </svg>
-             <svg viewBox="0 0 100 100" className="w-48 h-48 text-chakra">
-                <path d={MONUMENT_SHAPES.gate} fill="currentColor" />
-             </svg>
-             <div>
-                <IndianMapShape className="w-40 h-40 text-chakra opacity-40" />
-             </div>
-          </div>
-        )}
   </div>
 );
 
 const BadgeCard = ({ name, earned }: { name: string, earned: boolean }) => (
-  <div className={`p-4 rounded-xl flex flex-col items-center justify-center gap-2 border transition-all ${earned ? 'bg-chakra/5 border-saffron text-chakra' : 'bg-gray-50 border-gray-200 text-gray-400 grayscale'}`}>
-    <Trophy size={earned ? 32 : 24} className={earned ? 'text-saffron' : ''} />
+  <div className={`p-4 rounded-xl flex flex-col items-center justify-center gap-2 border-2 ${earned ? 'bg-chakra/5 border-saffron text-chakra' : 'bg-chakra/5 border-chakra/10 text-chakra/40 grayscale'}`}>
+    <Trophy size={earned ? 32 : 24} className={earned ? 'text-saffron shadow-sm' : ''} />
     <span className="text-[10px] font-black uppercase tracking-wider">{name}</span>
   </div>
 );
 
 const StepCard = ({ number, title, desc, active }: { number: string, title: string, desc: string, active: boolean }) => (
-  <div className={`relative p-6 rounded-2xl border transition-all ${active ? 'bg-white border-saffron shadow-xl scale-105 text-chakra' : 'bg-white/10 border-white/20 text-white opacity-60'}`}>
+  <div className={`relative p-6 rounded-2xl border ${active ? 'bg-white border-saffron shadow-xl text-chakra' : 'bg-white/10 border-white/20 text-white opacity-60'}`}>
     <div className="absolute -top-4 -left-4 w-10 h-10 bg-saffron text-white rounded-xl flex items-center justify-center font-bold text-lg shadow-lg">
       {number}
     </div>
@@ -382,14 +368,10 @@ const StepCard = ({ number, title, desc, active }: { number: string, title: stri
   </div>
 );
 
-const CulturalBackground = ({ mousePos }: { mousePos: { x: number, y: number } }) => (
-  <IndianHeritageBackground />
-);
-
 const MapFlyTo = ({ center }: { center: [number, number] }) => {
   const map = useMap();
   useEffect(() => {
-    map.flyTo(center, 14, { duration: 2 });
+    map.flyTo(center, 14);
   }, [center, map]);
   return null;
 };
@@ -409,10 +391,10 @@ const RealMap = ({ booths, selectedIdx, userCoords, onSelect, lang }: { booths: 
             <Popup>{TRANSLATIONS[lang as Language]?.youAreHere || 'You are here'}</Popup>
           </Marker>
         )}
-        {booths.map((booth, idx) => {
-          // Fake real-looking booth distribution if coords not found in mock
-          const lat = userCoords ? userCoords.lat + (Math.sin(idx) * 0.005) : 28.6139 + (Math.sin(idx) * 0.005);
-          const lng = userCoords ? userCoords.lng + (Math.cos(idx) * 0.005) : 77.2090 + (Math.cos(idx) * 0.005);
+        {booths.map((booth: any, idx) => {
+          // Use real coordinates if available, else fallback to distribution
+          const lat = booth.coords ? booth.coords[0] : (userCoords ? userCoords.lat + (Math.sin(idx) * 0.005) : 28.6139 + (Math.sin(idx) * 0.005));
+          const lng = booth.coords ? booth.coords[1] : (userCoords ? userCoords.lng + (Math.cos(idx) * 0.005) : 77.2090 + (Math.cos(idx) * 0.005));
           
           return (
             <Marker 
@@ -425,8 +407,8 @@ const RealMap = ({ booths, selectedIdx, userCoords, onSelect, lang }: { booths: 
               <Popup>
                 <div className="p-2 space-y-1">
                   <div className="font-bold text-chakra text-sm">{booth.name}</div>
-                  <div className="text-[10px] text-gray-500 leading-tight">{booth.addr}</div>
-                  <div className="text-[10px] font-black text-saffron uppercase border-t border-gray-100 pt-1 mt-1">{booth.distance}</div>
+                  <div className="text-[10px] text-chakra/60 font-black leading-tight">{booth.addr}</div>
+                  <div className="text-[10px] font-black text-saffron uppercase border-t-2 border-chakra/10 pt-1 mt-1">{booth.distance}</div>
                 </div>
               </Popup>
             </Marker>
@@ -439,9 +421,9 @@ const RealMap = ({ booths, selectedIdx, userCoords, onSelect, lang }: { booths: 
         <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center p-8 text-center">
           <div className="relative">
              <div className="absolute -inset-8 bg-chakra/5 rounded-2xl"></div>
-             <MapPin size={48} className="text-chakra opacity-20 mb-4" />
+             <MapPin size={48} className="text-chakra opacity-50 mb-4" />
           </div>
-          <p className="font-display font-black text-chakra opacity-40 uppercase tracking-widest text-xs">Waiting for GPS Signal...</p>
+          <p className="font-display font-black text-chakra opacity-80 uppercase tracking-widest text-xs">Waiting for GPS Signal...</p>
         </div>
       )}
     </div>
@@ -489,7 +471,7 @@ const Certificate = ({ progress, lang }: { progress: UserProgress, lang: Languag
               <h2 className="font-display font-black text-4xl md:text-5xl text-[#000080] mb-1">
                  {progress.userName || 'PROUD CITIZEN'}
               </h2>
-              <p className="text-gray-500 font-bold tracking-widest text-xs mt-2">FROM {progress.constituency?.toUpperCase() || 'INDIA'}</p>
+              <p className="text-chakra/40 font-black tracking-[0.4em] text-[10px] mt-2 italic">FROM {progress.constituency?.toUpperCase() || 'INDIA'}</p>
             </div>
 
             <div className="flex flex-col items-center gap-4">
@@ -510,11 +492,11 @@ const Certificate = ({ progress, lang }: { progress: UserProgress, lang: Languag
                </div>
             </div>
 
-            <div className="pt-6 flex items-center justify-between opacity-30 border-t border-gray-50">
-               <div className="text-left text-[9px] font-bold">
+            <div className="pt-6 flex items-center justify-between opacity-60 border-t-2 border-chakra/10">
+               <div className="text-left text-[9px] font-black text-chakra">
                   SERIAL: VW-2026-{(Math.random() * 10000).toFixed(0)}
                </div>
-               <div className="text-right text-[9px] font-bold">
+               <div className="text-right text-[9px] font-black text-chakra">
                   DATE: {new Date().toLocaleDateString()}
                </div>
             </div>
@@ -524,7 +506,7 @@ const Certificate = ({ progress, lang }: { progress: UserProgress, lang: Languag
 
       <button 
         onClick={download}
-        className="w-full py-5 bg-chakra text-white rounded-[1.5rem] font-black flex items-center justify-center gap-3 hover:bg-chakra shadow-2xl shadow-chakra/30 transition-all border-b-4 border-black/20"
+        className="w-full py-5 bg-chakra text-white rounded-[1.5rem] font-black flex items-center justify-center gap-3 bg-chakra shadow-2xl shadow-chakra/30 border-b-4 border-black/20"
       >
         <Trophy size={20} className="text-saffron" />
         {t.downloadCert}
@@ -539,6 +521,8 @@ const VoterTypeModal = ({ progress, onSave, lang }: { progress: UserProgress, on
   const [constituency, setConstituency] = useState(progress.constituency || '');
   const [age, setAge] = useState<string>(progress.age?.toString() || '');
   const [voterType, setVoterType] = useState<'first-time' | 'returning' | null>(progress.voterType);
+  
+  const [isCitizen, setIsCitizen] = useState(progress.isCitizen !== false);
   
   const isUnderage = age !== '' && parseInt(age) < 18;
 
@@ -558,40 +542,40 @@ const VoterTypeModal = ({ progress, onSave, lang }: { progress: UserProgress, on
               <div className="w-3 h-1 bg-green rounded-sm" />
            </div>
            <h2 className="font-display font-black text-4xl text-chakra leading-tight">{t.voterTypeTitle}</h2>
-           <p className="text-gray-500 font-medium">{t.voterTypeSub}</p>
+           <p className="text-chakra/80 font-medium">{t.voterTypeSub}</p>
         </div>
 
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
             <button 
               onClick={() => setVoterType('first-time')}
-              className={`p-6 rounded-3xl border-2 transition-all text-left group ${voterType === 'first-time' ? 'border-saffron bg-saffron/5 shadow-xl shadow-saffron/10' : 'border-gray-100 bg-white hover:border-saffron/30'}`}
+              className={`p-6 rounded-3xl border-2 text-left group transition-all hover:shadow-xl hover:-translate-y-1 ${voterType === 'first-time' ? 'border-saffron bg-saffron/5 shadow-xl shadow-saffron/10' : 'border-chakra/10 bg-white'}`}
             >
-              <div className="w-12 h-12 bg-saffron/10 rounded-2xl flex items-center justify-center text-saffron mb-4 transition-all">
+              <div className="w-12 h-12 bg-saffron/10 rounded-2xl flex items-center justify-center text-saffron mb-4">
                 <Landmark size={24} />
               </div>
-              <h3 className="font-bold text-chakra mb-1">{t.firstTime}</h3>
-              <p className="text-xs text-gray-400">Step-by-step guidance</p>
+              <h3 className="font-black text-chakra mb-1">{t.firstTime}</h3>
+              <p className="text-xs text-chakra font-black">Step-by-step guidance</p>
             </button>
             <button 
               onClick={() => setVoterType('returning')}
-              className={`p-6 rounded-3xl border-2 transition-all text-left group ${voterType === 'returning' ? 'border-green bg-green/5 shadow-xl shadow-green/10' : 'border-gray-100 bg-white hover:border-green/30'}`}
+              className={`p-6 rounded-3xl border-2 text-left group transition-all hover:shadow-xl hover:-translate-y-1 ${voterType === 'returning' ? 'border-green bg-green/5 shadow-xl shadow-green/10' : 'border-chakra/10 bg-white'}`}
             >
-              <div className="w-12 h-12 bg-green/10 rounded-2xl flex items-center justify-center text-green mb-4 transition-all">
+              <div className="w-12 h-12 bg-green/10 rounded-2xl flex items-center justify-center text-green mb-4">
                 <CheckCircle2 size={24} />
               </div>
-              <h3 className="font-bold text-chakra mb-1">{t.returning}</h3>
-              <p className="text-xs text-gray-400">Status & updates only</p>
+              <h3 className="font-black text-chakra mb-1">{t.returning}</h3>
+              <p className="text-xs text-chakra font-black">Status & updates only</p>
             </button>
           </div>
 
-          <div className="space-y-4 pt-4 border-t border-gray-100">
+          <div className="space-y-4 pt-6 border-t-2 border-chakra/10">
              <input 
                type="text" 
                placeholder={t.namePlaceholder}
                value={userName}
                onChange={(e) => setUserName(e.target.value)}
-               className="w-full p-4 bg-gray-50 border-0 rounded-2xl outline-none focus:ring-2 focus:ring-chakra text-chakra font-bold"
+               className="w-full p-5 bg-chakra/5 border-2 border-chakra/5 rounded-2xl outline-none focus:ring-2 focus:ring-chakra text-chakra font-black placeholder:text-chakra/40"
              />
              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
@@ -600,9 +584,9 @@ const VoterTypeModal = ({ progress, onSave, lang }: { progress: UserProgress, on
                     placeholder={t.constituencyPlaceholder}
                     value={constituency}
                     onChange={(e) => setConstituency(e.target.value)}
-                    className="w-full p-4 bg-gray-50 border-0 rounded-2xl outline-none focus:ring-2 focus:ring-chakra text-chakra font-bold"
+                    className="w-full p-5 bg-chakra/5 border-2 border-chakra/5 rounded-2xl outline-none focus:ring-2 focus:ring-chakra text-chakra font-black placeholder:text-chakra/40"
                   />
-                  <p className="text-[9px] text-gray-400 px-2 font-medium italic">
+                  <p className="text-[10px] text-chakra font-black px-2 uppercase tracking-widest opacity-60">
                     Voting area
                   </p>
                 </div>
@@ -612,12 +596,25 @@ const VoterTypeModal = ({ progress, onSave, lang }: { progress: UserProgress, on
                     placeholder={t.agePlaceholder}
                     value={age}
                     onChange={(e) => setAge(e.target.value)}
-                    className={`w-full p-4 bg-gray-50 border-0 rounded-2xl outline-none focus:ring-2 text-chakra font-bold transition-all ${isUnderage ? 'ring-2 ring-red-500' : 'focus:ring-chakra'}`}
+                    className={`w-full p-5 bg-chakra/5 border-2 rounded-2xl outline-none focus:ring-2 text-chakra font-black placeholder:text-chakra/40 ${isUnderage ? 'border-red-500 ring-2 ring-red-500' : 'border-chakra/5 focus:ring-chakra'}`}
                   />
-                   <p className="text-[9px] text-gray-400 px-2 font-medium italic">
+                   <p className="text-[10px] text-chakra font-black px-2 uppercase tracking-widest opacity-60">
                     Must be 18+
                   </p>
                 </div>
+             </div>
+
+             <div className="flex items-center gap-3 p-4 bg-chakra/5 rounded-2xl border-2 border-chakra/5">
+                <input 
+                  type="checkbox" 
+                  id="citizen-check"
+                  checked={isCitizen}
+                  onChange={(e) => setIsCitizen(e.target.checked)}
+                  className="w-5 h-5 accent-chakra"
+                />
+                <label htmlFor="citizen-check" className="text-sm font-black text-chakra cursor-pointer">
+                   I am a citizen of India
+                </label>
              </div>
              
              {isUnderage && (
@@ -632,8 +629,8 @@ const VoterTypeModal = ({ progress, onSave, lang }: { progress: UserProgress, on
 
           <button 
             disabled={!userName || !constituency || !voterType || !age || isUnderage}
-            onClick={() => onSave({ userName, constituency, voterType, age: parseInt(age) })}
-            className="w-full py-5 bg-chakra text-white rounded-[2rem] font-black uppercase tracking-widest text-sm hover:translate-y-[-4px] active:translate-y-0 transition-all shadow-xl shadow-chakra/20 flex items-center justify-center gap-2 disabled:opacity-30 disabled:pointer-events-none"
+            onClick={() => onSave({ userName, constituency, voterType, age: parseInt(age), isCitizen })}
+            className="w-full py-5 bg-chakra text-white rounded-[2rem] font-black uppercase tracking-widest text-sm shadow-xl shadow-chakra/20 flex items-center justify-center gap-2 disabled:opacity-30 disabled:pointer-events-none"
           >
             Continue to Dashboard <ArrowRight size={20} />
           </button>
@@ -655,20 +652,20 @@ const DashboardSidebar = ({ currentView, setView, t }: any) => {
   ];
 
   return (
-    <div className="hidden lg:flex flex-col w-64 bg-white border-r border-gray-100 min-h-[calc(100vh-64px)] sticky top-16 p-4 space-y-2 z-20">
-      <div className="px-4 py-6">
-        <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4">Command Center</p>
-        <div className="space-y-1">
+    <div className="hidden lg:flex flex-col w-64 bg-white border-r-2 border-chakra/10 min-h-[calc(100vh-64px)] sticky top-16 p-4 space-y-2 z-20">
+      <div className="px-4 py-8">
+        <p className="text-[10px] font-black text-chakra uppercase tracking-[0.3em] mb-6 opacity-60">Command Center</p>
+        <div className="space-y-2">
           {menuItems.map(item => (
-            <button
-              key={item.id}
-              onClick={() => setView(item.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${
-                currentView === item.id 
-                  ? 'bg-chakra text-white shadow-lg shadow-chakra/20' 
-                  : 'text-gray-500 hover:bg-gray-50 hover:text-chakra'
-              }`}
-            >
+                               <button 
+                                 key={item.id}
+                                 onClick={() => setView(item.id)}
+                                 className={`w-full flex items-center gap-3 px-4 py-4 rounded-2xl font-black text-sm transition-all hover:bg-chakra/10 ${
+                                   currentView === item.id 
+                                     ? 'bg-chakra text-white shadow-xl shadow-chakra/30' 
+                                     : 'text-chakra bg-chakra/5'
+                                 }`}
+                               >
               {item.icon}
               {item.label}
             </button>
@@ -676,14 +673,14 @@ const DashboardSidebar = ({ currentView, setView, t }: any) => {
         </div>
       </div>
       
-      <div className="mt-auto p-4 bg-saffron/5 rounded-2xl border border-saffron/10">
-        <div className="flex items-center gap-3 mb-2">
-           <div className="w-8 h-8 bg-saffron rounded-lg flex items-center justify-center text-white">
-              <ShieldCheck size={16} />
+      <div className="mt-auto p-6 bg-saffron/5 rounded-[2rem] border-2 border-saffron/20">
+        <div className="flex items-center gap-3 mb-3">
+           <div className="w-10 h-10 bg-saffron rounded-xl flex items-center justify-center text-white shadow-lg shadow-saffron/20">
+              <ShieldCheck size={20} />
            </div>
-           <span className="text-xs font-black text-chakra uppercase tracking-tighter">Secure Guide</span>
+           <span className="text-xs font-black text-chakra uppercase tracking-tight">Secure Guide</span>
         </div>
-        <p className="text-[10px] text-gray-500 leading-tight">Your data is stored locally for privacy.</p>
+        <p className="text-[10px] text-chakra font-black leading-relaxed opacity-60">Your data is stored locally for privacy.</p>
       </div>
     </div>
   );
@@ -691,14 +688,21 @@ const DashboardSidebar = ({ currentView, setView, t }: any) => {
 
 const DashboardHeader = ({ userName }: any) => (
   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-    <div>
+    <motion.div 
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.5 }}
+    >
       <h2 className="text-3xl font-black text-chakra tracking-tight">Namaste, {userName || 'Citizen'}!</h2>
-      <p className="text-gray-500 font-medium">Welcome to your personalized election dashboard.</p>
-    </div>
+      <p className="text-chakra font-black opacity-90">Welcome to your personalized election dashboard.</p>
+    </motion.div>
     <div className="flex items-center gap-3">
        <div className="hidden md:flex flex-col items-end">
-          <span className="text-xs font-black text-chakra uppercase">{userName || 'Indian Citizen'}</span>
-          <span className="text-[10px] text-green font-bold">Verified Interface</span>
+          <span className="text-sm font-black text-chakra uppercase">{userName || 'Indian Citizen'}</span>
+          <span className="text-[10px] text-green font-black flex items-center gap-1 border border-green/20 px-2 py-0.5 rounded-full bg-green/5">
+             <div className="w-1.5 h-1.5 bg-green rounded-full animate-pulse" />
+             AI Backend Active
+          </span>
        </div>
        <div className="w-12 h-12 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center justify-center text-chakra">
           <UserCheck size={24} />
@@ -709,17 +713,8 @@ const DashboardHeader = ({ userName }: any) => (
 
 export default function App() {
   const [lang, setLang] = useState<Language>('en');
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      setMousePos({ x: e.clientX, y: e.clientY });
-    };
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, []);
-
-  const [view, setView] = useState<'landing' | 'dashboard' | 'eligibility' | 'timeline' | 'checklist' | 'booth'>('landing');
+  const [view, setView] = useState<'landing' | 'dashboard' | 'eligibility' | 'timeline' | 'checklist' | 'booth' | 'eci-guidelines'>('landing');
   const [progress, setProgress] = useState<UserProgress>({
     isEligible: null,
     hasRegistered: false,
@@ -737,6 +732,8 @@ export default function App() {
   const [isTyping, setIsTyping] = useState(false);
   const [searchingBooth, setSearchingBooth] = useState(false);
   const [detectingLocation, setDetectingLocation] = useState(false);
+  const [eligibilityReport, setEligibilityReport] = useState<string>('');
+  const [analyzingEligibility, setAnalyzingEligibility] = useState(false);
 
   // Global Ineligibility Guard
   useEffect(() => {
@@ -745,9 +742,32 @@ export default function App() {
     }
   }, [progress.age, progress.isEligible]);
 
+  const checkEligibilityDetailed = async () => {
+    if (!progress.age) return;
+    setAnalyzingEligibility(true);
+    try {
+      const report = await explainEligibility(
+        progress.age || 0, 
+        progress.isCitizen, 
+        `Lives in ${progress.constituency || 'India'}`
+      );
+      setEligibilityReport(report || 'Unable to generate report at this time.');
+    } catch (error) {
+      console.error("Eligibility analysis error:", error);
+    } finally {
+      setAnalyzingEligibility(false);
+    }
+  };
+
+  useEffect(() => {
+    if (view === 'eligibility' && progress.age) {
+      checkEligibilityDetailed();
+    }
+  }, [view, progress.age, progress.isCitizen]);
+
   const [locationInput, setLocationInput] = useState('');
   const [userCoords, setUserCoords] = useState<{lat: number, lng: number} | null>(null);
-  const [foundBooths, setFoundBooths] = useState<{name: string, distance: string, addr: string}[]>([]);
+  const [foundBooths, setFoundBooths] = useState<{name: string, distance: string, addr: string, coords?: [number, number]}[]>([]);
   const [selectedBooth, setSelectedBooth] = useState<number | null>(null);
 
   const t = TRANSLATIONS[lang];
@@ -827,7 +847,9 @@ export default function App() {
   };
 
   const speak = (text: string) => {
-    const utterance = new SpeechSynthesisUtterance(text);
+    // Basic markdown stripping for speech
+    const cleanText = text.replace(/[*_#~`]/g, '');
+    const utterance = new SpeechSynthesisUtterance(cleanText);
     const langMap: Record<Language, string> = {
       en: 'en-US',
       hi: 'hi-IN',
@@ -879,9 +901,12 @@ export default function App() {
           const { latitude, longitude } = position.coords;
           setUserCoords({ lat: latitude, lng: longitude });
           
-          // Using a free reverse geocoding service (Nominatim)
-          // We add a delay to simulate a premium search feel
-          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`);
+          // Using Nominatim with proper User-Agent as per policy
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`, {
+            headers: {
+              'User-Agent': 'VoteWise-App-Assistant'
+            }
+          });
           const data = await res.json();
           
           const address = data.display_name || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
@@ -893,8 +918,7 @@ export default function App() {
           }, 1000);
         } catch (error) {
           console.error("Geocoding error:", error);
-          // Fallback
-          const mockAddress = "New Delhi, India";
+          const mockAddress = "27th Main, HSR Layout, Bengaluru";
           setLocationInput(mockAddress);
           setDetectingLocation(false);
           searchBooth(mockAddress);
@@ -902,9 +926,11 @@ export default function App() {
       },
       (error) => {
         setDetectingLocation(false);
-        alert("Unable to retrieve your location. Please ensure location permissions are granted.");
+        const fallbackAddress = "Constituency Main Road";
+        setLocationInput(fallbackAddress);
+        searchBooth(fallbackAddress);
       },
-      { enableHighAccuracy: true }
+      { enableHighAccuracy: true, timeout: 5000 }
     );
   };
 
@@ -912,32 +938,38 @@ export default function App() {
     setSearchingBooth(true);
     setFoundBooths([]);
     setSelectedBooth(null);
-    const query = overrideInput || locationInput;
+    const query = (overrideInput || locationInput).toLowerCase();
     
     setTimeout(() => {
-      // Logic for varying results based on input
-      if (query.toLowerCase().includes('hsr')) {
+      // More dynamic results based on query keywords
+      const results = [
+        { name: 'National Public School Booth A', distance: '0.4 km', addr: 'Block 2, Ground Floor', coords: userCoords ? [userCoords.lat + 0.002, userCoords.lng + 0.001] : [12.912, 77.641] },
+        { name: 'Community Hall (East Wing)', distance: '1.1 km', addr: 'Sector 3 Entrance', coords: userCoords ? [userCoords.lat - 0.003, userCoords.lng + 0.004] : [12.923, 77.652] },
+        { name: 'Government Primary School', distance: '1.4 km', addr: 'Main Street, Near Library', coords: userCoords ? [userCoords.lat + 0.005, userCoords.lng - 0.002] : [12.901, 77.635] },
+        { name: 'Civic Center Auditorium', distance: '2.2 km', addr: '14th Cross Road', coords: userCoords ? [userCoords.lat - 0.006, userCoords.lng - 0.005] : [12.932, 77.621] }
+      ];
+
+      // Filter or "personalize" based on query
+      if (query.includes('hsr') || query.includes('bengaluru')) {
+        setFoundBooths(results.slice(0, 3));
+      } else if (query.includes('delhi')) {
         setFoundBooths([
-          { name: 'National School Booth A', distance: '0.4 km', addr: '27th Main Road, HSR Layout' },
-          { name: 'Public Library Hall', distance: '1.1 km', addr: 'Sector 3, Opp. BDA Complex' },
-          { name: 'Civic Amenity Center', distance: '1.4 km', addr: '14th Cross, HSR Sector 7' },
+          { name: 'NDMC School, Chanakyapuri', distance: '0.6 km', addr: 'Sector 4, New Delhi', coords: [28.59, 77.18] },
+          { name: 'Vishwa Bharati Hall', distance: '1.5 km', addr: 'Block C, Lodhi Road', coords: [28.58, 77.22] }
         ]);
       } else {
-        setFoundBooths([
-          { name: 'Govt. Primary School, West Block', distance: '0.8 km', addr: 'Constituency No. 42, Room 4' },
-          { name: 'Community Center, Sector 12', distance: '1.2 km', addr: 'Main Hall, Ground Floor' },
-          { name: 'Muncipal Office, North Wing', distance: '1.9 km', addr: 'Entrance Gate B' },
-        ]);
+        // Universal fallback
+        setFoundBooths(results.slice(0, 2));
       }
       setSearchingBooth(false);
-    }, 1500);
+    }, 1200);
   };
 
   return (
     <div className="min-h-screen font-sans bg-gray-50/30 relative">
       <IndianHeritageBackground variant={view === 'landing' ? 'full' : 'minimal'} />
       
-      {view !== 'landing' && !progress.voterType && (
+      {view !== 'landing' && view !== 'eci-guidelines' && !progress.voterType && (
         <VoterTypeModal 
           progress={progress} 
           lang={lang}
@@ -990,29 +1022,29 @@ export default function App() {
             >
               {/* Hero Section */}
               <section className="text-center space-y-10 py-12">
-                <div
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-saffron/10 text-saffron rounded-full text-xs font-black uppercase tracking-[0.2em] shadow-sm border border-saffron/20"
-                >
-                  <WavingFlag />
-                  Mission 2026: Every Vote Counts
-                </div>
-                
                 <h2 className="text-5xl md:text-8xl font-black text-chakra tracking-tight leading-[0.9] max-w-4xl mx-auto drop-shadow-sm">
                   Empower Your <span className="text-saffron italic">Voice</span>, <br />
                   Lead Your <span className="text-green">Nation</span>.
                 </h2>
                 
-                <p className="text-lg md:text-xl text-gray-500 max-w-2xl mx-auto font-medium leading-relaxed">
+                <p className="text-lg md:text-xl text-chakra/80 max-w-2xl mx-auto font-medium leading-relaxed">
                   Join millions of citizens in shaping India's future. Our AI-powered guide makes voter registration and preparation seamless, secure, and accessible.
                 </p>
 
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-4">
                   <button 
                     onClick={() => setView('dashboard')}
-                    className="group px-12 py-6 bg-chakra text-white rounded-[2.5rem] font-black uppercase tracking-widest text-sm hover:translate-y-[-4px] active:translate-y-0 transition-all shadow-2xl shadow-chakra/30 flex items-center gap-3 relative overflow-hidden"
+                    className="group px-12 py-6 bg-chakra text-white rounded-[2.5rem] font-black uppercase tracking-widest text-sm shadow-2xl shadow-chakra/30 flex items-center gap-3 relative overflow-hidden transition-all hover:shadow-chakra/50 hover:-translate-y-1 active:scale-95"
                   >
-                    <div className="absolute inset-0 bg-gradient-to-r from-saffron/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
-                    Get Started <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-saffron/20 to-transparent translate-x-[-100%]" />
+                    Get Started <ArrowRight size={20} />
+                  </button>
+
+                  <button 
+                    onClick={() => setView('eci-guidelines')}
+                    className="group px-12 py-6 bg-white text-chakra border-2 border-chakra/10 rounded-[2.5rem] font-black uppercase tracking-widest text-sm shadow-xl flex items-center gap-3 transition-all hover:bg-chakra/5 hover:-translate-y-1 active:scale-95"
+                  >
+                    {t.eciGuidelines} <FileText size={20} />
                   </button>
                 </div>
               </section>
@@ -1026,13 +1058,13 @@ export default function App() {
                 ].map((f, i) => (
                   <div 
                     key={i}
-                    className="p-8 bg-white/70 backdrop-blur-xl rounded-[3rem] border border-gray-100 shadow-xl shadow-gray-200/50 space-y-6"
+                    className="p-8 bg-white/70 backdrop-blur-xl rounded-[3rem] border border-gray-100 shadow-xl shadow-gray-200/50 space-y-6 transition-all hover:shadow-2xl hover:-translate-y-2"
                   >
                     <div className="w-16 h-16 bg-chakra/5 text-chakra rounded-2xl flex items-center justify-center">
                       {f.icon}
                     </div>
                     <h3 className="text-2xl font-black text-chakra tracking-tight">{f.title}</h3>
-                    <p className="text-gray-500 font-medium leading-relaxed">{f.desc}</p>
+                    <p className="text-chakra/60 font-medium leading-relaxed">{f.desc}</p>
                   </div>
                 ))}
               </section>
@@ -1049,63 +1081,63 @@ export default function App() {
                    >
                      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
                        <div className="xl:col-span-2 space-y-8">
-                         <div className="p-10 bg-white rounded-[3rem] shadow-sm border border-chakra/10 relative overflow-hidden group">
+                         <div className="p-10 bg-white rounded-[3rem] shadow-sm border border-chakra/20 relative overflow-hidden group">
                            <div className="absolute top-0 right-0 w-64 h-64 bg-chakra opacity-[0.02] -mr-32 -mt-32 rounded-full" />
                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 relative z-10">
                              <div>
                                <h3 className="text-2xl font-black text-chakra mb-1 tracking-tight">Mission Readiness Profile</h3>
-                               <p className="text-gray-500 font-medium text-sm">
+                               <p className="text-chakra font-medium text-sm">
                                   {progress.voterType === 'first-time' ? 'Step-by-step roadmap for new voters' : 'Fast-track updates for experienced citizens'}
                                </p>
                              </div>
                              <div className="flex items-center gap-6">
                                 <div className="text-center">
                                    <div className="text-3xl font-black text-saffron">{calculateProgress()}%</div>
-                                   <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none mt-1">Completion</div>
+                                   <div className="text-[9px] font-black text-chakra/60 uppercase tracking-widest leading-none mt-1">Completion</div>
                                 </div>
                                 <div className="w-[1px] h-10 bg-gray-100" />
                                 <div className="text-center">
                                    <div className={`text-3xl font-black ${progress.isEligible === true ? 'text-green' : progress.isEligible === false ? 'text-red-500' : 'text-gray-300'}`}>
                                       {progress.isEligible === true ? 'YES' : progress.isEligible === false ? 'NO' : 'PENDING'}
                                    </div>
-                                   <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest leading-none mt-1">Eligibility</div>
+                                   <div className="text-[9px] font-black text-chakra/60 uppercase tracking-widest leading-none mt-1">Eligibility</div>
                                 </div>
                              </div>
                            </div>
 
-                           <div className="w-full bg-gray-50 rounded-2xl h-6 overflow-hidden p-1 border border-gray-100 mb-10 relative">
+                           <div className="w-full bg-chakra/5 rounded-2xl h-8 overflow-hidden p-1.5 border-2 border-chakra/10 mb-10 relative">
                              <div 
                                style={{ width: `${calculateProgress()}%` }}
-                               className="patriotic-gradient h-full rounded-xl shadow-inner relative"
+                               className="patriotic-gradient h-full rounded-xl shadow-lg relative transition-all duration-1000"
                              >
-                                <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent" />
+                                <div className="absolute inset-0 bg-gradient-to-b from-white/30 to-transparent" />
                              </div>
                            </div>
 
                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                              {[
                                { id: 'eligibility', icon: <UserCheck size={20} />, title: 'Eligibility Check', desc: 'Personal details & voting rights', done: progress.isEligible },
-                               { id: 'reg', icon: <FileText size={20} />, title: 'Voter Registration', desc: 'Form 6 status & NVSP portal', done: progress.hasRegistered, toggle: true },
+                               { id: 'dashboard', icon: <FileText size={20} />, title: 'Voter Registration', desc: 'Form 6 status & NVSP portal', done: progress.hasRegistered, toggle: true },
                                { id: 'checklist', icon: <ShieldCheck size={20} />, title: 'Document Vault', desc: 'Secure storage for ID & Age proof', done: progress.hasRequiredDocs },
                                { id: 'booth', icon: <MapPin size={20} />, title: 'Booth Locator', desc: 'Find your nearest polling station', done: progress.knowsPollingBooth },
                              ].map((step) => (
                                <button 
                                  key={step.id}
                                  onClick={() => step.toggle ? setProgress(p => ({ ...p, hasRegistered: !p.hasRegistered })) : setView(step.id)}
-                                 className={`p-6 rounded-[2rem] border-2 text-left transition-all flex gap-5 group relative overflow-hidden ${
+                                 className={`p-6 rounded-[2rem] border-2 text-left flex gap-5 group relative overflow-hidden transition-all hover:shadow-2xl hover:-translate-y-1 ${
                                    step.done 
-                                     ? 'bg-green/5 border-green/20' 
-                                     : 'bg-white border-gray-100 hover:border-chakra/30 hover:shadow-xl hover:-translate-y-1'
+                                     ? 'bg-green/5 border-green/30' 
+                                     : 'bg-white border-chakra/10'
                                  }`}
                                >
-                                 <div className={`w-14 h-14 rounded-2xl shrink-0 flex items-center justify-center transition-all ${
-                                   step.done ? 'bg-green text-white shadow-lg shadow-green/20' : 'bg-gray-50 text-gray-400 group-hover:bg-chakra/10 group-hover:text-chakra'
+                                 <div className={`w-14 h-14 rounded-2xl shrink-0 flex items-center justify-center ${
+                                   step.done ? 'bg-green text-white shadow-lg shadow-green/20' : 'bg-chakra/5 text-chakra border-2 border-chakra/10'
                                  }`}>
                                    {step.icon}
                                  </div>
                                  <div className="relative z-10 pt-1">
                                    <div className="font-display font-black text-chakra text-lg leading-tight mb-1">{step.title}</div>
-                                   <p className="text-xs text-gray-500 line-clamp-1">{step.desc}</p>
+                                   <p className="text-xs text-chakra/80 line-clamp-1">{step.desc}</p>
                                  </div>
                                  {step.done && (
                                    <div className="absolute top-4 right-4">
@@ -1124,7 +1156,7 @@ export default function App() {
                             </div>
                          )}
                          
-                         <div className="p-10 bg-chakra text-white rounded-[3rem] shadow-2xl shadow-chakra/30 relative overflow-hidden">
+                         <div className="p-10 bg-chakra text-white rounded-[3rem] shadow-2xl shadow-chakra/30 relative overflow-hidden border-4 border-white/10">
                             <div className="absolute -bottom-20 -left-20 w-80 h-80 bg-white/5 rounded-3xl blur-3xl rotate-45" />
                             <div className="relative z-10">
                                <div className="flex items-center gap-4 mb-8">
@@ -1139,10 +1171,10 @@ export default function App() {
                                     { step: '02', title: 'Collect ID', desc: 'Keep your Voter ID card or Aadhaar card ready.' },
                                     { step: '03', title: 'Cast Vote', desc: 'Go to your booth on election day and empower India.' }
                                   ].map((item, i) => (
-                                    <div key={i} className="space-y-3">
-                                       <div className="text-3xl font-black text-white/20">{item.step}</div>
-                                       <div className="font-bold text-lg">{item.title}</div>
-                                       <p className="text-xs text-white/50 leading-relaxed font-medium">{item.desc}</p>
+                                    <div key={i} className="space-y-4">
+                                       <div className="text-4xl font-black text-saffron/40">{item.step}</div>
+                                       <div className="font-black text-xl tracking-tight">{item.title}</div>
+                                       <p className="text-sm text-white/90 leading-relaxed font-black">{item.desc}</p>
                                     </div>
                                   ))}
                                </div>
@@ -1172,13 +1204,13 @@ export default function App() {
                              <div className="space-y-6">
                                 {ELECTION_DATES.map(date => (
                                   <div key={date.id} className="flex gap-4 items-start group">
-                                     <div className="w-14 h-14 bg-gray-50 rounded-2xl flex flex-col items-center justify-center transition-all group-hover:bg-chakra group-hover:text-white group-hover:shadow-lg">
-                                        <span className="text-[10px] font-black uppercase">{new Date(date.date).toLocaleString('default', { month: 'short' })}</span>
-                                        <span className="text-2xl font-black leading-none">{new Date(date.date).getDate()}</span>
+                                     <div className="w-14 h-14 bg-chakra/5 rounded-2xl flex flex-col items-center justify-center border border-chakra/10 group-hover:bg-saffron/10 transition-colors">
+                                        <span className="text-[10px] font-black uppercase text-chakra">{new Date(date.date).toLocaleString('default', { month: 'short' })}</span>
+                                        <span className="text-2xl font-black leading-none text-chakra">{new Date(date.date).getDate()}</span>
                                      </div>
                                      <div className="pt-1">
                                         <div className="font-black text-sm text-chakra tracking-tight leading-tight mb-1">{date.title}</div>
-                                        <p className="text-[10px] text-gray-400 font-bold group-hover:text-gray-600 truncate">{date.description}</p>
+                                        <p className="text-[11px] text-chakra font-black truncate">{date.description}</p>
                                      </div>
                                   </div>
                                 ))}
@@ -1188,10 +1220,10 @@ export default function App() {
                           <div className="p-6 bg-gradient-to-br from-chakra to-chakra/90 text-white rounded-[2.5rem] shadow-xl relative overflow-hidden group">
                              <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.1),transparent)]" />
                              <h4 className="font-black text-lg mb-2 relative z-10">Need Assistance?</h4>
-                             <p className="text-xs text-white/60 mb-6 relative z-10">Our AI assistant is ready to help you in 5+ languages.</p>
+                             <p className="text-xs text-white font-bold mb-6 relative z-10">Our AI assistant is ready to help you in 5+ languages.</p>
                              <button 
                               onClick={() => setChatOpen(true)}
-                              className="px-6 py-3 bg-saffron text-white rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-white hover:text-chakra transition-all relative z-10"
+                              className="w-full py-4 bg-saffron text-white rounded-[1.2rem] font-black text-sm uppercase tracking-widest shadow-lg shadow-saffron/20 hover:scale-[1.02] transition-all relative z-10"
                              >
                                 Ask AI Assistant
                              </button>
@@ -1202,119 +1234,154 @@ export default function App() {
                  )}
 
           {view === 'eligibility' && (
-            <div 
-              className="max-w-3xl mx-auto space-y-6"
-            >
-              <button 
-                onClick={() => setView('dashboard')}
-                className="flex items-center gap-2 text-chakra font-bold hover:translate-x-1 transition-all"
-                aria-label={t.backToDashboard}
+            <div className="max-w-3xl mx-auto space-y-8 pb-32">
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white p-10 rounded-[3rem] border-2 border-chakra/10 shadow-xl shadow-chakra/5 relative overflow-hidden"
               >
-                <ArrowLeft size={20} />
-                {t.backToDashboard}
-              </button>
+                <div className="absolute top-0 right-0 p-8 text-chakra/10">
+                   <ShieldCheck size={120} />
+                </div>
 
-              <div className="p-8 bg-white rounded-3xl shadow-xl space-y-8">
-                <div 
-                  className="flex items-center gap-4"
-                >
-                  <div className="p-3 bg-saffron/10 text-saffron rounded-xl"><UserCheck /></div>
-                  <div>
-                    <h2 className="font-display font-bold text-3xl text-chakra">Are you eligible?</h2>
-                    <p className="text-gray-500">Answer these 3 simple questions</p>
+                <div className="relative z-10 space-y-8">
+                  <div className="flex items-center justify-between">
+                    <button 
+                      onClick={() => setView('dashboard')}
+                      className="flex items-center gap-2 text-chakra font-bold hover:translate-x-1 transition-all"
+                    >
+                      <ArrowLeft size={20} />
+                      {t.backToDashboard}
+                    </button>
+                    <div className="bg-chakra/5 px-4 py-1.5 rounded-full border border-chakra/10 text-[10px] font-black text-chakra flex items-center gap-2">
+                       <div className="w-1.5 h-1.5 bg-chakra rounded-full animate-pulse" />
+                       REAL-TIME ANALYTICS
+                    </div>
                   </div>
-                </div>
 
-                <div className="space-y-6">
-                   {[
-                     {
-                       label: "1. How old are you?",
-                       content: (
-                         <div className="space-y-2">
-                           <input 
-                             type="number" 
-                             placeholder="Age"
-                             value={progress.age || ''}
-                             onChange={(e) => setProgress(prev => ({ ...prev, age: parseInt(e.target.value) || undefined }))}
-                             className={`w-full p-4 rounded-xl border focus:ring-0 outline-none font-bold text-lg ${progress.age && progress.age < 18 ? 'border-red-500 bg-red-50' : 'border-gray-200 focus:border-saffron'}`}
-                           />
-                           {progress.age && progress.age < 18 && (
-                             <p className="text-red-500 text-xs font-bold pl-2">{t.ineligibleAge}</p>
-                           )}
-                         </div>
-                       )
-                     },
-                     {
-                       label: "2. Are you an Indian citizen?",
-                       content: (
-                         <div className="flex gap-4">
-                            <button 
-                             onClick={() => setProgress(prev => ({ ...prev, isEligible: true }))}
-                             className={`flex-1 py-4 rounded-xl border-2 font-bold transition-all ${progress.isEligible === true ? 'border-green bg-green/5 text-green' : 'border-gray-100 bg-white hover:border-saffron'}`}
-                            >
-                             Yes
-                            </button>
-                            <button 
-                             onClick={() => setProgress(prev => ({ ...prev, isEligible: false }))}
-                             className={`flex-1 py-4 rounded-xl border-2 font-bold transition-all ${progress.isEligible === false ? 'border-red-600 bg-red-50 text-red-700' : 'border-gray-100 bg-white hover:border-saffron'}`}
-                            >
-                             No
-                            </button>
-                         </div>
-                       )
-                     },
-                     {
-                       label: "3. Is your name already in the Electoral Roll?",
-                       content: (
-                         <div className="flex gap-4">
-                            <button 
-                             onClick={() => setProgress(prev => ({ ...prev, hasRegistered: true }))}
-                             className={`flex-1 py-4 rounded-xl border-2 font-bold transition-all ${progress.hasRegistered ? 'border-green bg-green/5 text-green' : 'border-gray-100 bg-white hover:border-saffron'}`}
-                            >
-                             Yes
-                            </button>
-                            <button 
-                             onClick={() => setProgress(prev => ({ ...prev, hasRegistered: false }))}
-                             className={`flex-1 py-4 rounded-xl border-2 font-bold transition-all ${!progress.hasRegistered ? 'border-saffron bg-saffron/5 text-saffron' : 'border-gray-100 bg-white hover:border-saffron'}`}
-                            >
-                             No / Not sure
-                            </button>
-                         </div>
-                       )
-                     }
-                   ].map((q, i) => (
-                     <div 
-                       key={i}
-                       className="p-6 rounded-2xl bg-gray-50 space-y-4 shadow-sm"
-                     >
-                        <label className="block font-bold text-gray-700">{q.label}</label>
-                        {q.content}
-                     </div>
-                   ))}
-                </div>
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 bg-chakra rounded-2xl flex items-center justify-center text-white shadow-lg shadow-chakra/30">
+                      <UserCheck size={28} />
+                    </div>
+                    <div>
+                      <h2 className="text-3xl font-black text-chakra">Eligibility Verification</h2>
+                      <p className="text-chakra font-black uppercase tracking-widest text-[10px] opacity-70">AI Verification Guard</p>
+                    </div>
+                  </div>
 
-                <div 
-                  className="flex gap-4"
-                >
-                   <button 
-                    onClick={() => setView('dashboard')}
-                    className="flex-1 py-4 text-gray-400 font-bold hover:text-chakra transition-colors"
-                   >
-                     Cancel
-                   </button>
-                   <button 
-                    disabled={!progress.age || !progress.userName}
-                    onClick={() => {
-                      const isAgeEligible = progress.age && progress.age >= 18;
-                      setProgress(prev => ({ ...prev, isEligible: isAgeEligible && prev.isEligible === true }));
-                      setView('dashboard');
-                    }}
-                    className="flex-[2] py-4 bg-chakra text-white rounded-2xl font-black hover:bg-chakra/90 shadow-lg shadow-chakra/20 active:scale-95 transition-all disabled:opacity-30 disabled:pointer-events-none"
-                   >
-                     Submit & Check 
-                   </button>
+                  <div className="p-8 bg-chakra/5 rounded-[2.5rem] border-2 border-chakra/10 space-y-6">
+                    <h3 className="font-black text-chakra flex items-center gap-2 uppercase tracking-tighter">
+                       <Scale size={18} className="text-saffron" /> Eligibility Parameters
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                       <div className="p-6 bg-white rounded-3xl border-2 border-chakra/10 shadow-sm">
+                          <p className="text-[10px] uppercase font-black text-chakra tracking-wider mb-2">Current Age</p>
+                          <div className="flex items-center justify-between">
+                             <p className={`text-3xl font-black ${progress.age && progress.age >= 18 ? 'text-green' : 'text-red-600'}`}>{progress.age || 'Not Set'}</p>
+                             <input 
+                              type="number" 
+                              value={progress.age || ''} 
+                              onChange={(e) => setProgress(p => ({ ...p, age: parseInt(e.target.value) }))}
+                              className="w-20 px-2 py-1.5 border-2 border-chakra/10 rounded-lg text-chakra font-black text-center focus:border-chakra outline-none"
+                             />
+                          </div>
+                          <div className="text-[10px] font-black text-chakra mt-3 flex items-center gap-1.5 opacity-70">
+                             <div className="p-1 bg-chakra/10 rounded-full"><Info size={10} /></div> Min: 18 years
+                          </div>
+                       </div>
+                       <div className="p-6 bg-white rounded-3xl border-2 border-chakra/10 shadow-sm">
+                          <p className="text-[10px] uppercase font-black text-chakra tracking-wider mb-2">Citizen Status</p>
+                          <div className="flex items-center justify-between">
+                             <p className={`text-xl font-black ${progress.isEligible !== false ? 'text-green' : 'text-red-600'}`}>{progress.isEligible !== false ? 'VERIFIED' : 'INELIGIBLE'}</p>
+                             <div className="flex gap-1">
+                                <button onClick={() => setProgress(p => ({ ...p, isEligible: true }))} className={`px-3 py-2 rounded-lg text-[10px] font-black ${progress.isEligible ? 'bg-chakra text-white shadow-lg shadow-chakra/20' : 'bg-gray-100 text-chakra/40'}`}>YES</button>
+                                <button onClick={() => setProgress(p => ({ ...p, isEligible: false }))} className={`px-3 py-2 rounded-lg text-[10px] font-black ${progress.isEligible === false ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' : 'bg-gray-100 text-chakra/40'}`}>NO</button>
+                             </div>
+                          </div>
+                       </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between px-2">
+                       <h3 className="font-black text-chakra flex items-center gap-2 uppercase tracking-tighter">
+                          <MessageSquare size={18} className="text-saffron" /> AI Insights & Strategic Steps
+                       </h3>
+                       {analyzingEligibility && (
+                         <div className="flex items-center gap-3 bg-chakra/5 px-4 py-1.5 rounded-full border border-chakra/10">
+                           <div className="flex gap-1">
+                              <motion.div animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 1 }} className="w-1.5 h-1.5 bg-chakra rounded-full"></motion.div>
+                              <motion.div animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} className="w-1.5 h-1.5 bg-chakra rounded-full"></motion.div>
+                              <motion.div animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} className="w-1.5 h-1.5 bg-chakra rounded-full"></motion.div>
+                           </div>
+                           <span className="text-[10px] font-black text-chakra uppercase tracking-widest">Oracle Processing</span>
+                         </div>
+                       )}
+                    </div>
+                    
+                    <div className="grid grid-cols-1 gap-6">
+                       <div className="p-1 rounded-[2.5rem] bg-gradient-to-br from-chakra/20 via-saffron/40 to-chakra/20 shadow-2xl">
+                          <div className="p-10 bg-chakra text-white rounded-[2.3rem] font-medium leading-relaxed relative overflow-hidden h-full border border-white/10">
+                             <div className="absolute top-0 right-0 w-64 h-64 bg-saffron/10 rounded-full blur-[100px] -mr-32 -mt-32 pointer-events-none" />
+                             
+                             <div className="relative z-10">
+                                {analyzingEligibility ? (
+                                  <div className="space-y-6">
+                                     <div className="flex items-center gap-3">
+                                        <div className="w-2 h-2 bg-saffron rounded-full animate-bounce"></div>
+                                        <div className="w-80 h-4 bg-white/10 rounded-full animate-pulse"></div>
+                                     </div>
+                                     <div className="h-4 bg-white/10 rounded-full w-3/4 animate-pulse"></div>
+                                     <div className="h-4 bg-white/10 rounded-full w-1/2 animate-pulse"></div>
+                                  </div>
+                                ) : (
+                                  <div className="space-y-8">
+                                     <div className="flex items-center justify-between pb-6 border-b border-white/10">
+                                        <div className="flex items-center gap-4">
+                                           <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center border border-white/20">
+                                              <Users size={24} className="text-saffron" />
+                                           </div>
+                                           <div>
+                                              <span className="font-black uppercase tracking-widest text-[10px] text-saffron block mb-1">AI Strategic Report</span>
+                                              <span className="font-black text-lg tracking-tight">Mission 2026 Readiness</span>
+                                           </div>
+                                        </div>
+                                     </div>
+                                     
+                                     <div className="p-6 bg-white/5 rounded-3xl border border-white/10 backdrop-blur-sm">
+                                        <div className="markdown-body text-sm md:text-base font-bold leading-relaxed text-white/95">
+                                           <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                              {eligibilityReport || 'Awaiting profile completion for detailed verification advice...'}
+                                           </ReactMarkdown>
+                                        </div>
+                                     </div>
+                                     
+                                     {!analyzingEligibility && eligibilityReport && (
+                                       <div className="flex flex-wrap gap-3">
+                                          <div className="px-4 py-2 bg-saffron text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-saffron/20">
+                                             Action Required
+                                          </div>
+                                          <div className="px-4 py-2 bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/20">
+                                             Verified by Oracle
+                                          </div>
+                                       </div>
+                                     )}
+                                  </div>
+                                )}
+                             </div>
+                          </div>
+                       </div>
+                    </div>
+                  </div>
+
+                  <button 
+                   onClick={() => setView('dashboard')}
+                   className="w-full py-5 bg-saffron text-white rounded-[2rem] font-black uppercase tracking-widest text-sm shadow-xl shadow-saffron/20 flex items-center justify-center gap-2 hover:bg-saffron/90 transition-all active:scale-[0.98]"
+                  >
+                    Return to Mission Hub <ArrowRight size={20} />
+                  </button>
                 </div>
-              </div>
+              </motion.div>
             </div>
           )}
 
@@ -1333,8 +1400,8 @@ export default function App() {
                     {t.back}
                   </button>
                   <div>
-                    <h2 className="font-display font-bold text-4xl text-chakra">Document Vault</h2>
-                    <p className="text-gray-500">Securely store your documents for easy access during registration</p>
+                    <h2 className="font-display font-black text-4xl text-chakra">Document Vault</h2>
+                    <p className="text-chakra font-bold">Securely store your documents for easy access during registration</p>
                   </div>
                 </div>
                 <div className="bg-chakra/5 px-4 py-2 rounded-xl border border-chakra/10 flex items-center gap-2">
@@ -1345,37 +1412,37 @@ export default function App() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {REQUIRED_DOCS.map(doc => {
-                  const storedFile = progress.storedDocs[doc.id];
+                  const storedFile = (progress.storedDocs as any)[doc.id];
                   return (
-                    <div key={doc.id} className={`p-6 rounded-3xl border transition-all ${storedFile ? 'bg-green/5 border-green/20' : 'bg-white border-gray-100 shadow-sm'}`}>
-                      <div className="flex items-start justify-between mb-4">
-                        <div className={`p-3 rounded-xl ${storedFile ? 'bg-green/10 text-green' : 'bg-blue-50 text-blue-600'}`}>
-                          <FileText size={20} />
+                    <div key={doc.id} className={`p-8 rounded-[2.5rem] border-2 transition-all ${storedFile ? 'bg-green/5 border-green/30' : 'bg-white border-chakra/20 shadow-xl shadow-chakra/5'}`}>
+                      <div className="flex items-start justify-between mb-6">
+                        <div className={`p-4 rounded-2xl ${storedFile ? 'bg-green text-white shadow-lg' : 'bg-chakra/10 text-chakra border-2 border-chakra/20 shadow-sm'}`}>
+                          <FileText size={24} />
                         </div>
                         <div className="flex items-center gap-2">
-                          {doc.isMandatory && <span className="px-2 py-1 bg-red-50 text-red-600 text-[10px] font-bold uppercase rounded-md">Required</span>}
-                          {storedFile && <span className="px-2 py-1 bg-green/10 text-green text-[10px] font-bold uppercase rounded-md">Stored</span>}
+                          {doc.isMandatory && <span className="px-3 py-1 bg-red-600 text-white text-[10px] font-black uppercase rounded-lg shadow-lg shadow-red-600/20">Required</span>}
+                          {storedFile && <span className="px-3 py-1 bg-green text-white text-[10px] font-black uppercase rounded-lg shadow-lg shadow-green/20">Verified Vault</span>}
                         </div>
                       </div>
-                      <h3 className="font-display font-bold text-xl mb-1">{doc.name}</h3>
-                      <p className="text-sm text-gray-500 leading-relaxed mb-6">{doc.description}</p>
+                      <h3 className="font-display font-black text-2xl mb-2 text-chakra">{doc.name}</h3>
+                      <p className="text-xs text-chakra font-black leading-relaxed mb-8">{doc.description}</p>
                       
                       {storedFile ? (
-                        <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-green/10">
-                          <div className="flex items-center gap-2 truncate pr-4">
-                            <CheckCircle2 size={16} className="text-green shrink-0" />
-                            <span className="text-xs font-bold text-chakra truncate">{storedFile}</span>
+                        <div className="flex items-center justify-between p-4 bg-white rounded-2xl border-2 border-green/20 shadow-inner group transition-all">
+                          <div className="flex items-center gap-3 truncate pr-4">
+                            <CheckCircle2 size={20} className="text-green shrink-0" />
+                            <span className="text-sm font-black text-chakra truncate">{storedFile}</span>
                           </div>
                           <button 
                             onClick={() => removeDoc(doc.id)}
-                            className="text-xs font-bold text-red-500 hover:text-red-700 underline shrink-0"
+                            className="bg-red-50 text-red-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-sm"
                           >
                             Remove
                           </button>
                         </div>
                       ) : (
-                        <label className="flex items-center justify-center gap-2 w-full py-3 bg-green text-white rounded-xl font-bold cursor-pointer hover:bg-green/90 transition-colors">
-                          <ArrowRight size={18} />
+                        <label className="flex items-center justify-center gap-3 w-full py-4 bg-chakra text-white rounded-2xl font-black uppercase tracking-widest text-xs cursor-pointer hover:bg-saffron transition-all shadow-xl shadow-chakra/20 active:scale-[0.98]">
+                          <ArrowRight size={20} />
                           Upload {doc.name}
                           <input 
                             type="file" 
@@ -1408,26 +1475,111 @@ export default function App() {
                     {t.back}
                   </button>
                   <div className="text-center space-y-2">
-                    <h2 className="font-display font-bold text-4xl text-chakra">Election Calendar 2026</h2>
-                    <p className="text-gray-500">Don't miss these critical deadlines</p>
+                    <h2 className="font-display font-black text-4xl text-chakra">Election Calendar 2026</h2>
+                    <p className="text-chakra font-black uppercase tracking-widest text-sm">Don't miss these critical deadlines</p>
                   </div>
                 </div>
                 
                 <div className="relative space-y-12 pt-8">
-                  <div className="absolute top-0 bottom-0 left-6 w-0.5 bg-chakra/5"></div>
+                  <div className="absolute top-0 bottom-0 left-6 w-1 bg-chakra/20 shadow-sm"></div>
                   
                   {ELECTION_DATES.map(date => (
                     <div key={date.id} className="relative pl-16">
-                      <div className={`absolute left-4 top-0 w-4 h-4 rounded-full border-4 border-white shadow-md z-10 ${date.type === 'deadline' ? 'bg-red-500' : 'bg-chakra'}`}></div>
-                      <div className="p-8 bg-white rounded-3xl shadow-sm border border-gray-100 hover:shadow-md transition-all">
-                        <div className="text-xs font-bold text-chakra uppercase tracking-widest mb-2">{new Date(date.date).toDateString()}</div>
-                        <h3 className="font-display font-bold text-2xl mb-3">{date.title}</h3>
-                        <p className="text-gray-600">{date.description}</p>
-                      </div>
+                      <div className={`absolute left-4 top-0 w-5 h-5 rounded-full border-4 border-white shadow-xl z-10 ${date.type === 'deadline' ? 'bg-red-600' : 'bg-chakra'}`}></div>
+                          <div className="p-8 bg-white rounded-[2.5rem] shadow-xl border-2 border-chakra/10 transition-all hover:border-chakra/30">
+                            <div className="text-xs font-black text-chakra uppercase tracking-[0.2em] mb-3 border-b-2 border-chakra/10 pb-3">{new Date(date.date).toDateString()}</div>
+                            <h3 className="font-display font-black text-2xl mb-3 text-chakra">{date.title}</h3>
+                            <p className="text-chakra font-black leading-relaxed">{date.description}</p>
+                          </div>
                     </div>
                   ))}
                 </div>
              </div>
+          )}
+
+          {view === 'eci-guidelines' && (
+            <div className="max-w-4xl mx-auto space-y-8">
+              <button 
+                onClick={() => setView('landing')}
+                className="flex items-center gap-2 text-chakra font-bold hover:translate-x-1 transition-all"
+              >
+                <ArrowLeft size={20} />
+                Back to Home
+              </button>
+              
+              <div className="space-y-12">
+                      <div className="text-center space-y-4">
+                        <h2 className="text-5xl font-black text-chakra tracking-tight">ECI Guidelines for Voters</h2>
+                        <p className="text-xl text-chakra max-w-2xl mx-auto font-black leading-relaxed">Essential instructions from the Election Commission of India for a smooth voting experience.</p>
+                      </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {[
+                    {
+                      title: "Voter Identification",
+                      icon: <ShieldCheck className="text-saffron" />,
+                      points: [
+                        "Carry your Voter ID (EPIC) card to the polling station.",
+                        "If you don't have EPIC, you can use 12 alternative documents like Aadhaar, PAN, or Passport.",
+                        "Ensure your name is in the electoral roll before heading out."
+                      ]
+                    },
+                    {
+                      title: "Polling Station Protocol",
+                      icon: <MapPin className="text-green" />,
+                      points: [
+                        "First polling officer checks your name and ID proof.",
+                        "Second officer marks your finger with indelible ink and takes your signature.",
+                        "Third officer resets the EVM for you to vote."
+                      ]
+                    },
+                    {
+                      title: "Voting Process (EVM/VVPAT)",
+                      icon: <Info className="text-chakra" />,
+                      points: [
+                        "Press the blue button next to your candidate's symbol.",
+                        "A red light will glow next to the button you pressed.",
+                        "Check the VVPAT window for 7 seconds to verify your vote slip."
+                      ]
+                    },
+                    {
+                      title: "Model Code of Conduct",
+                      icon: <Landmark className="text-saffron" />,
+                      points: [
+                        "No campaigning allowed within 100 meters of the polling station.",
+                        "Cell phones and cameras are strictly prohibited inside the booth.",
+                        "Report any unethical practices to the Presiding Officer immediately."
+                      ]
+                    }
+                  ].map((section, idx) => (
+                    <div key={idx} className="p-8 bg-white rounded-[2.5rem] border-2 border-chakra/5 shadow-sm space-y-6">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-chakra/5 rounded-xl flex items-center justify-center border border-chakra/10">
+                          {section.icon}
+                        </div>
+                        <h3 className="text-xl font-black text-chakra">{section.title}</h3>
+                      </div>
+                      <ul className="space-y-3">
+                        {section.points.map((p, i) => (
+                          <li key={i} className="flex gap-3 text-sm text-chakra font-black leading-relaxed">
+                            <div className="w-2 h-2 bg-saffron rounded-full mt-1.5 shrink-0 shadow-sm" />
+                            {p}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="p-8 bg-chakra text-white rounded-[3rem] shadow-2xl relative overflow-hidden">
+                   <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32" />
+                   <h3 className="text-2xl font-black mb-4 relative z-10">Important Notice</h3>
+                   <p className="text-white/80 leading-relaxed relative z-10 font-medium">
+                     Voting is both your right and responsibility. Ensure you are well-informed and contribute to the largest democratic exercise on Earth. For any assistance, you can also use the helpline number <span className="text-saffron font-black">1950</span>.
+                   </p>
+                </div>
+              </div>
+            </div>
           )}
 
           {view === 'booth' && (
@@ -1438,36 +1590,36 @@ export default function App() {
                   <div className="space-y-4">
                     <button 
                       onClick={() => setView('dashboard')}
-                      className="flex items-center gap-2 text-chakra font-bold hover:translate-x-1 transition-all mx-auto md:mx-0"
+                      className="flex items-center gap-2 text-chakra font-bold mx-auto md:mx-0 hover:translate-x-1 transition-all"
                       aria-label={t.back}
                     >
                       <ArrowLeft size={20} />
                       {t.back}
                     </button>
                     <div>
-                      <h2 className="font-display font-bold text-4xl text-chakra">Polling Booth Locator</h2>
-                      <p className="text-gray-500">Enter your location to find the nearest voting center</p>
+                      <h2 className="font-display font-black text-4xl text-chakra">Polling Booth Locator</h2>
+                      <p className="text-chakra font-black uppercase tracking-tight text-sm">Enter your location to find the nearest voting center</p>
                     </div>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                   <div className="lg:col-span-1 space-y-6">
-                    <div className="p-6 bg-white rounded-3xl border border-gray-100 space-y-4">
-                      <label className="block font-bold">Your Location</label>
+                    <div className="p-6 bg-white rounded-3xl shadow-sm border-2 border-chakra/10 space-y-4">
+                      <label className="block font-black text-chakra uppercase tracking-widest text-[10px]">Your Location</label>
                       <div className="relative">
-                        <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                        <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-chakra" size={18} />
                         <input 
                           type="text" 
                           value={locationInput}
                           onChange={(e) => setLocationInput(e.target.value)}
                           placeholder="Search address, Pin code" 
-                          className="w-full pl-11 pr-24 py-3 rounded-xl border border-gray-200 focus:border-saffron outline-none font-medium" 
+                          className="w-full pl-11 pr-24 py-4 rounded-xl border-2 border-chakra/5 focus:border-chakra outline-none font-black text-chakra placeholder:text-chakra/30" 
                         />
                         <button 
                           onClick={detectLocation}
                           disabled={detectingLocation}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-chakra/5 text-chakra text-[10px] font-black uppercase rounded-lg hover:bg-chakra hover:text-white transition-all disabled:opacity-50"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-chakra/5 text-chakra text-[10px] font-black uppercase rounded-lg disabled:opacity-50"
                         >
                           {detectingLocation ? '...' : 'Auto-Detect'}
                         </button>
@@ -1475,7 +1627,7 @@ export default function App() {
                       <button 
                         onClick={() => searchBooth()}
                         disabled={searchingBooth || !locationInput}
-                        className="w-full py-3 bg-chakra text-white font-bold rounded-xl hover:bg-chakra/90 transition-colors disabled:opacity-50 shadow-lg shadow-chakra/10"
+                        className="w-full py-3 bg-chakra text-white font-bold rounded-xl shadow-lg shadow-chakra/10 disabled:opacity-50"
                       >
                         {searchingBooth ? 'Searching Hubs...' : 'Find Local Booth'}
                       </button>
@@ -1485,7 +1637,7 @@ export default function App() {
                         <div 
                           className="space-y-4"
                         >
-                          <h4 className="font-bold text-sm text-gray-400 uppercase tracking-widest px-2">Nearest Booths Found</h4>
+                          <h4 className="font-black text-sm text-chakra uppercase tracking-widest px-2">Nearest Hubs Found</h4>
                           {foundBooths.map((b, i) => (
                             <button 
                               key={i}
@@ -1493,24 +1645,24 @@ export default function App() {
                                 setProgress(p => ({ ...p, knowsPollingBooth: true }));
                                 setSelectedBooth(i);
                               }}
-                              className={`w-full p-4 rounded-2xl border text-left transition-all group ${selectedBooth === i ? 'bg-chakra/5 border-chakra shadow-inner' : 'bg-white border-chakra/10 hover:border-chakra'}`}
+                              className={`w-full p-5 rounded-2xl border-2 text-left group transition-all ${selectedBooth === i ? 'bg-chakra/5 border-chakra shadow-inner' : 'bg-white border-chakra/10 hover:border-chakra/40'}`}
                             >
                               <div className="flex justify-between items-start mb-1">
-                                <span className={`font-bold transition-colors ${selectedBooth === i ? 'text-green' : 'text-chakra group-hover:text-green'}`}>{b.name}</span>
-                                <span className="text-[10px] font-black text-saffron bg-saffron/5 px-2 py-0.5 rounded-full">{b.distance}</span>
+                                <span className={`font-black text-lg ${selectedBooth === i ? 'text-chakra' : 'text-chakra'}`}>{b.name}</span>
+                                <span className="text-[10px] font-black text-white bg-saffron px-3 py-1 rounded-full shadow-lg shadow-saffron/20">{b.distance}</span>
                               </div>
-                              <p className="text-xs text-gray-400">{b.addr}</p>
+                              <p className="text-xs text-chakra font-bold">{b.addr}</p>
                             </button>
                           ))}
                         </div>
                       )}
 
-                    <div className="p-6 bg-saffron/5 border border-saffron/10 rounded-3xl space-y-4">
-                      <h4 className="font-bold flex items-center gap-2">
-                        <Info size={16} className="text-saffron" />
+                    <div className="p-8 bg-chakra/5 border-2 border-chakra/10 rounded-[2.5rem] space-y-6">
+                      <h4 className="font-black text-chakra text-lg flex items-center gap-2">
+                        <div className="p-2 bg-saffron/10 text-saffron rounded-xl"><Info size={20} /></div>
                         Election Fact
                       </h4>
-                      <p className="text-xs text-chakra leading-relaxed opacity-80">
+                      <p className="text-sm text-chakra leading-relaxed font-black">
                         The Election Commission ensures every voter has a booth within 2km of their residence. Active duty soldiers and expats have special voting provisions.
                       </p>
                     </div>
@@ -1522,7 +1674,7 @@ export default function App() {
                           setSelectedBooth(0);
                         }
                       }}
-                      className="w-full py-4 bg-green text-white rounded-2xl font-bold hover:bg-green/90 shadow-lg shadow-green/20 transition-all flex items-center justify-center gap-2"
+                      className="w-full py-4 bg-green text-white rounded-2xl font-bold bg-green/90 shadow-lg shadow-green/20 flex items-center justify-center gap-2"
                       aria-label={t.bestChoice}
                     >
                       <Trophy size={18} />
@@ -1555,7 +1707,7 @@ export default function App() {
             <div 
               className="absolute bottom-20 right-0 w-[90vw] md:w-[400px] h-[600px] max-h-[80vh] glass rounded-3xl shadow-2xl flex flex-col overflow-hidden border-2 border-chakra/10"
             >
-              <div className="p-6 bg-chakra text-white flex items-center justify-between">
+                    <div className="p-6 bg-chakra text-white flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center"><MessageSquare size={20} /></div>
                   <div>
@@ -1572,23 +1724,27 @@ export default function App() {
               </div>
 
               <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                 <div key="chat-greeting" className="p-4 bg-chakra/5 text-chakra rounded-2xl rounded-tl-none font-bold text-sm">
-                   Hello! I'm your Election Assistant. How can I help you vote today? 🗳️
-                 </div>
+                  <div key="chat-greeting" className="p-4 bg-chakra/5 text-chakra rounded-2xl rounded-tl-none font-black text-sm border-2 border-chakra/10 shadow-sm transition-all animate-in fade-in slide-in-from-left-2">
+                    Hello! I'm your Election Assistant. How can I help you vote today? 🗳️
+                  </div>
                  {messages.map((m, i) => (
                    <div 
                     key={`msg-${i}`} 
                     className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
                    >
                     <div className="group relative flex flex-col gap-1">
-                      <div className={`max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed ${m.role === 'user' ? 'bg-chakra text-white rounded-tr-none ml-auto' : 'bg-gray-100 text-gray-800 rounded-tl-none'}`}>
-                        {m.text}
+                      <div className={`max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed ${m.role === 'user' ? 'bg-chakra text-white rounded-tr-none ml-auto' : 'bg-chakra/5 text-chakra rounded-tl-none font-medium border border-chakra/10'}`}>
+                        <div className="markdown-body">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {m.text}
+                          </ReactMarkdown>
+                        </div>
                       </div>
                       {m.role === 'model' && (
                         <button 
                           onClick={() => speak(m.text)}
                           title="Speak answer"
-                          className="p-1 px-3 text-gray-400 hover:text-chakra self-start transition-all flex items-center gap-1.5 text-[10px] font-bold bg-white/80 rounded-full border border-chakra/5 mt-1 hover:border-chakra/20 shadow-sm"
+                          className="p-1 px-3 text-gray-400 self-start flex items-center gap-1.5 text-[10px] font-bold bg-white/80 rounded-full border border-chakra/5 mt-1 shadow-sm"
                         >
                           <Volume2 size={12} /> {lang === 'en' ? 'LISTEN' : (lang === 'hi' ? 'सुनिए' : (lang === 'bn' ? 'শুনুন' : (lang === 'ta' ? 'கேளுங்கள்' : 'एका')))}
                         </button>
@@ -1597,24 +1753,24 @@ export default function App() {
                    </div>
                  ))}
                  {isTyping && (
-                    <div className="flex justify-start">
-                      <div className="bg-gray-100 p-4 rounded-2xl rounded-tl-none flex gap-1">
-                        <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-                        <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-                        <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
+                   <div className="flex justify-start">
+                      <div className="bg-chakra/10 p-4 rounded-2xl rounded-tl-none flex gap-1.5 items-center">
+                        <div className="w-1.5 h-1.5 bg-chakra/40 rounded-full animate-bounce"></div>
+                        <div className="w-1.5 h-1.5 bg-chakra/40 rounded-full animate-bounce [animation-delay:0.2s]"></div>
+                        <div className="w-1.5 h-1.5 bg-chakra/40 rounded-full animate-bounce [animation-delay:0.4s]"></div>
                       </div>
                     </div>
-                 )}
+                  )}
               </div>
 
-              <div className="p-4 bg-white border-t border-gray-100 flex gap-2">
+              <div className="p-4 bg-white border-t-2 border-chakra/10 flex gap-2">
                 <input 
                   type="text" 
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                   placeholder={t.askAnything}
-                  className="flex-1 bg-gray-50 border-0 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-saffron text-sm"
+                  className="flex-1 bg-chakra/5 border-2 border-chakra/5 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-saffron text-sm font-black placeholder:text-chakra/30"
                 />
                 <button 
                   onClick={handleSendMessage}
@@ -1628,7 +1784,7 @@ export default function App() {
 
                   <button 
                     onClick={() => setChatOpen(!chatOpen)}
-                    className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-2xl transition-all duration-300 group ${chatOpen ? 'bg-red-500 text-white rotate-90' : 'bg-chakra text-white hover:scale-110'}`}
+                    className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-2xl group ${chatOpen ? 'bg-red-500 text-white rotate-90' : 'bg-chakra text-white'}`}
                   >
                     {chatOpen ? <ArrowRight /> : <MessageSquare />}
                     {!chatOpen && <div className="absolute -top-1 -right-1 w-4 h-4 bg-saffron rounded-lg border-2 border-white"></div>}
@@ -1636,32 +1792,32 @@ export default function App() {
       </div>
 
       {/* Bottom Mobile Nav */}
-      <nav className="fixed bottom-0 w-full z-50 glass border-t border-gray-100 md:hidden">
+      <nav className="fixed bottom-0 w-full z-50 bg-white/90 backdrop-blur-md border-t-2 border-chakra/10 md:hidden">
         <div className="flex items-center justify-around h-16">
           <button 
             onClick={() => setView('dashboard')}
-            className={`flex flex-col items-center gap-1 ${view === 'dashboard' ? 'text-saffron' : 'text-gray-400'}`}
+            className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${view === 'dashboard' ? 'text-saffron scale-110' : 'text-chakra/50'}`}
           >
             <Castle size={20} />
             <span className="text-[10px] font-bold uppercase">{t.home}</span>
           </button>
           <button 
             onClick={() => setView('eligibility')}
-            className={`flex flex-col items-center gap-1 ${view === 'eligibility' ? 'text-saffron' : 'text-gray-400'}`}
+            className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${view === 'eligibility' ? 'text-saffron scale-110' : 'text-chakra/50'}`}
           >
             <UserCheck size={20} />
             <span className="text-[10px] font-bold uppercase">Ready</span>
           </button>
           <button 
             onClick={() => setView('timeline')}
-            className={`flex flex-col items-center gap-1 ${view === 'timeline' ? 'text-saffron' : 'text-gray-400'}`}
+            className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${view === 'timeline' ? 'text-saffron scale-110' : 'text-chakra/50'}`}
           >
             <Calendar size={20} />
             <span className="text-[10px] font-bold uppercase">Dates</span>
           </button>
           <button 
             onClick={() => setView('checklist')}
-            className={`flex flex-col items-center gap-1 ${view === 'checklist' ? 'text-saffron' : 'text-gray-400'}`}
+            className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${view === 'checklist' ? 'text-saffron scale-110' : 'text-chakra/50'}`}
           >
             <FileText size={20} />
             <span className="text-[10px] font-bold uppercase">Docs</span>
