@@ -349,6 +349,119 @@ const IndianHeritageBackground = ({ variant = "full" }: { variant?: "full" | "mi
   </div>
 );
 
+const PatrioticCursorEffect = () => {
+  const [particles, setParticles] = useState<{ id: number; x: number; y: number; tx: number; ty: number; color: string; size: number; rotation: number; type: string }[]>([]);
+  const idCounter = useRef(0);
+  const lastMousePos = useRef({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      const dist = Math.hypot(e.clientX - lastMousePos.current.x, e.clientY - lastMousePos.current.y);
+      if (dist > 15) {
+        const types = ['circle', 'dot', 'chakra', 'petal'];
+        const colors = ['#FF9933', '#FFFFFF', '#138808']; 
+        const type = types[Math.floor(Math.random() * types.length)];
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        const size = type === 'chakra' ? 14 : Math.random() * 6 + 3;
+        const newParticle = {
+          id: idCounter.current++,
+          x: e.clientX,
+          y: e.clientY,
+          tx: (Math.random() - 0.5) * 60,
+          ty: (Math.random() - 0.5) * 60,
+          color,
+          size,
+          rotation: Math.random() * 360,
+          type
+        };
+        setParticles(prev => [...prev.slice(-15), newParticle]);
+        lastMousePos.current = { x: e.clientX, y: e.clientY };
+      }
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+
+  return (
+    <div className="fixed inset-0 pointer-events-none z-[60] overflow-hidden">
+      <AnimatePresence>
+        {particles.map((p) => (
+          <motion.div
+            key={p.id}
+            initial={{ opacity: 0, scale: 0, x: p.x, y: p.y, rotate: 0 }}
+            animate={{ 
+              opacity: [0, 0.7, 0], 
+              scale: [0, 1.2, 0.4], 
+              x: p.x + p.tx, 
+              y: p.y + p.ty,
+              rotate: p.rotation + 180
+            }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1.2, ease: "easeOut" }}
+            style={{
+              position: 'absolute',
+              left: -p.size / 2,
+              top: -p.size / 2,
+            }}
+          >
+            {p.type === 'chakra' ? (
+              <div className="text-chakra opacity-30">
+                 <AshokaChakra className="w-4 h-4" />
+              </div>
+            ) : (
+              <div 
+                style={{
+                  width: p.size,
+                  height: p.size,
+                  backgroundColor: p.color,
+                  borderRadius: p.type === 'petal' ? '50% 0 50% 50%' : '50%',
+                  boxShadow: `0 0 10px ${p.color}44`,
+                }}
+              />
+            )}
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+const PatrioticHeroDecorations = () => {
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden -z-10">
+      {[...Array(8)].map((_, i) => (
+        <motion.div
+          key={i}
+          className="absolute"
+          initial={{ opacity: 0.05 }}
+          animate={{ 
+            y: [0, -40, 0],
+            x: [0, 20, 0],
+            rotate: [0, 360],
+            opacity: [0.05, 0.15, 0.05],
+            scale: [1, 1.1, 1]
+          }}
+          transition={{ 
+            duration: 15 + i * 3, 
+            repeat: Infinity, 
+            ease: "easeInOut" 
+          }}
+          style={{
+            top: `${Math.random() * 100}%`,
+            left: `${Math.random() * 100}%`,
+          }}
+        >
+          {i % 2 === 0 ? (
+            <AshokaChakra className="w-24 h-24 text-chakra opacity-20" />
+          ) : (
+            <div className={`w-16 h-16 rounded-full opacity-10 bg-${['saffron', 'white', 'green'][i % 3]}`} />
+          )}
+        </motion.div>
+      ))}
+    </div>
+  );
+};
+
 const BadgeCard = ({ name, earned }: { name: string, earned: boolean }) => (
   <div className={`p-4 rounded-xl flex flex-col items-center justify-center gap-2 border-2 ${earned ? 'bg-chakra/5 border-saffron text-chakra' : 'bg-chakra/5 border-chakra/10 text-chakra/40 grayscale'}`}>
     <Trophy size={earned ? 32 : 24} className={earned ? 'text-saffron shadow-sm' : ''} />
@@ -712,7 +825,7 @@ const DashboardHeader = ({ userName }: any) => (
 export default function App() {
   const [lang, setLang] = useState<Language>('en');
 
-  const [view, setView] = useState<'landing' | 'dashboard' | 'eligibility' | 'timeline' | 'checklist' | 'booth' | 'eci-guidelines'>('landing');
+  const [view, setView] = useState<'landing' | 'dashboard' | 'eligibility' | 'timeline' | 'checklist' | 'booth' | 'eci-guidelines' | 'electoral-search'>('landing');
   const [progress, setProgress] = useState<UserProgress>({
     isEligible: null,
     hasRegistered: false,
@@ -964,7 +1077,10 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen font-sans bg-gray-50/30 relative">
+    <div className="min-h-screen font-sans bg-gray-50/30 relative overflow-x-hidden selection:bg-saffron/30 selection:text-chakra">
+      <AnimatePresence>
+        {view === 'landing' && <PatrioticCursorEffect />}
+      </AnimatePresence>
       <IndianHeritageBackground variant={view === 'landing' ? 'full' : 'minimal'} />
       
       {view !== 'landing' && view !== 'eci-guidelines' && !progress.voterType && (
@@ -1019,11 +1135,18 @@ export default function App() {
               className="space-y-32 relative z-10"
             >
               {/* Hero Section */}
-              <section className="text-center space-y-10 py-12">
-                <h2 className="text-5xl md:text-8xl font-black text-chakra tracking-tight leading-[0.9] max-w-4xl mx-auto drop-shadow-sm">
-                  Empower Your <span className="text-saffron italic">Voice</span>, <br />
-                  Lead Your <span className="text-green">Nation</span>.
-                </h2>
+              <section className="text-center space-y-10 py-12 relative">
+                <PatrioticHeroDecorations />
+                <motion.div
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.8 }}
+                >
+                  <h2 className="text-5xl md:text-8xl font-black text-chakra tracking-tight leading-[0.9] max-w-4xl mx-auto drop-shadow-sm">
+                    Empower Your <span className="text-saffron italic">Voice</span>, <br />
+                    Lead Your <span className="text-green">Nation</span>.
+                  </h2>
+                </motion.div>
                 
                 <p className="text-lg md:text-xl text-chakra/80 max-w-2xl mx-auto font-medium leading-relaxed">
                   Join millions of citizens in shaping India's future. Our AI-powered guide makes voter registration and preparation seamless, secure, and accessible.
@@ -1114,14 +1237,14 @@ export default function App() {
 
                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                              {[
-                               { id: 'eligibility' as any, icon: <UserCheck size={20} />, title: 'Eligibility Check', desc: 'Personal details & voting rights', done: progress.isEligible },
-                               { id: 'dashboard' as any, icon: <FileText size={20} />, title: 'Voter Registration', desc: 'Form 6 status & NVSP portal', done: progress.hasRegistered, toggle: true },
-                               { id: 'checklist' as any, icon: <ShieldCheck size={20} />, title: 'Document Vault', desc: 'Secure storage for ID & Age proof', done: progress.hasRequiredDocs },
+                               { id: 'eligibility' as any, icon: <UserCheck size={20} />, title: 'Eligibility Check', desc: 'Verify your voting rights', done: progress.isEligible },
+                               { id: 'electoral-search' as any, icon: <Users size={20} />, title: 'Electoral Search', desc: 'Locate your name in the roll', done: false },
+                               { id: 'checklist' as any, icon: <ShieldCheck size={20} />, title: 'Document Vault', desc: 'Secure ID & Age verification', done: progress.hasRequiredDocs },
                                { id: 'booth' as any, icon: <MapPin size={20} />, title: 'Booth Locator', desc: 'Find your nearest polling station', done: progress.knowsPollingBooth },
                              ].map((step) => (
                                <button 
                                  key={step.id}
-                                 onClick={() => step.toggle ? setProgress(p => ({ ...p, hasRegistered: !p.hasRegistered })) : setView(step.id as any)}
+                                 onClick={() => setView(step.id as any)}
                                  className={`p-6 rounded-[2rem] border-2 text-left flex gap-5 group relative overflow-hidden transition-all hover:shadow-2xl hover:-translate-y-1 ${
                                    step.done 
                                      ? 'bg-green/5 border-green/30' 
@@ -1230,6 +1353,63 @@ export default function App() {
                      </div>
                     </div>
                  )}
+
+          {view === 'electoral-search' && (
+            <div className="max-w-4xl mx-auto space-y-8">
+               <button onClick={() => setView('dashboard')} className="flex items-center gap-2 text-chakra font-bold hover:translate-x-1 transition-all">
+                 <ArrowLeft size={20} /> Back to Dashboard
+               </button>
+               
+               <div className="p-10 bg-white rounded-[3rem] border-2 border-chakra/10 shadow-xl space-y-8">
+                 <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 bg-saffron rounded-2xl flex items-center justify-center text-white shadow-lg shadow-saffron/20">
+                      <Users size={28} />
+                    </div>
+                    <div>
+                      <h2 className="text-3xl font-black text-chakra">Electoral Roll Search</h2>
+                      <p className="text-chakra font-black uppercase tracking-widest text-[10px] opacity-70">Official ECI Service Connector</p>
+                    </div>
+                 </div>
+                 
+                 <p className="text-chakra font-medium leading-relaxed">
+                   To verify your name in the voter list, please visit the official <strong>Election Commission of India</strong> portal. 
+                   You can search by your EPIC number, mobile number, or your personal details.
+                 </p>
+                 
+                 <div className="p-6 bg-chakra/5 rounded-2xl border-2 border-chakra/10 flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div className="flex items-center gap-4 text-chakra">
+                       <Info size={24} className="text-saffron shrink-0" />
+                       <div className="text-sm font-black uppercase tracking-tight">Direct Access to NVSP Portal</div>
+                    </div>
+                    <a 
+                      href="https://electoralsearch.eci.gov.in" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="px-8 py-3 bg-chakra text-white font-black rounded-xl hover:scale-105 active:scale-95 transition-all shadow-lg"
+                    >
+                      Search Official Roll
+                    </a>
+                 </div>
+                 
+                 <div className="space-y-4">
+                    <h3 className="font-black text-chakra uppercase tracking-widest text-[10px]">What you can do there:</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                       {[
+                         "Verify your polling station",
+                         "Check your assembly constituency",
+                         "Download your Digital Voter Slip",
+                         "Check for any corrections needed"
+                       ].map((t, i) => (
+                         <div key={i} className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
+                            <CheckCircle2 className="text-green" size={16} />
+                            <span className="text-xs font-bold text-chakra">{t}</span>
+                         </div>
+                       ))}
+                    </div>
+                 </div>
+               </div>
+            </div>
+          )}
 
           {view === 'eligibility' && (
             <div className="max-w-3xl mx-auto space-y-8 pb-32">

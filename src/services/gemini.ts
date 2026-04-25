@@ -1,3 +1,7 @@
+import { GoogleGenAI } from "@google/genai";
+
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY as string });
+
 const SYSTEM_INSTRUCTION = `
 You are VoteWise AI, a specialized election assistant. Your goal is to help users understand the election process in a simple, non-partisan, and accurate way.
 Key Guidelines:
@@ -14,24 +18,20 @@ Key Guidelines:
 
 export async function getChatResponse(message: string, history: any[] = []) {
   try {
-    const response = await fetch("/api/ai", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        prompt: message,
-        history: history,
-        systemInstruction: SYSTEM_INSTRUCTION
-      })
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: [
+        ...history,
+        { role: 'user', parts: [{ text: message }] }
+      ],
+      config: {
+        systemInstruction: SYSTEM_INSTRUCTION,
+      }
     });
 
-    if (!response.ok) {
-      throw new Error(`Server responded with ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data.text || "I'm sorry, I couldn't process that request.";
+    return response.text || "I'm sorry, I couldn't process that request.";
   } catch (error) {
-    console.error("Gemini Proxy Error:", error);
+    console.error("Gemini Error:", error);
     return "I'm experiencing some technical difficulties. Please try again later.";
   }
 }
@@ -40,21 +40,15 @@ export async function explainEligibility(age: number, isCitizen: boolean, otherC
   const prompt = `Determine voter eligibility for a person who is ${age} years old, is ${isCitizen ? '' : 'not '}a citizen, and has these conditions: ${otherConstraints}. Explain the next steps clearly.`;
   
   try {
-    const response = await fetch("/api/ai", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        prompt: prompt,
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: prompt,
+      config: {
         systemInstruction: "You are an Indian election eligibility expert. Provide a detailed, structured eligibility report using markdown (bolding, lists, etc.). Be professional and authoritative. Use bold headers for sections."
-      })
+      }
     });
 
-    if (!response.ok) {
-      throw new Error(`Server responded with ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data.text;
+    return response.text || "Could not determine eligibility at this time.";
   } catch (error) {
     console.error("Eligibility analysis error:", error);
     return "Could not determine eligibility at this time.";
