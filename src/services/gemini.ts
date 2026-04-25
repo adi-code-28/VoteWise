@@ -16,7 +16,7 @@ Key Guidelines:
 - ALWAYS respond in the primary language selected by the user.
 `;
 
-export async function getChatResponse(message: string, history: { role: 'user' | 'model', parts: { text: string }[] }[] = []) {
+export async function getChatResponse(message: string, history: any[] = []) {
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -42,13 +42,14 @@ export async function explainEligibility(age: number, isCitizen: boolean, otherC
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: prompt,
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
       config: {
-        systemInstruction: "You are an Indian election eligibility expert. Provide a detailed, structured eligibility report using markdown (bolding, lists, etc.). Be professional and authoritative. If a value like 't' or numeric garbage is provided for a location, ignore it and treat the context as general Indian elections. Use bold headers for sections.",
+        systemInstruction: "You are an Indian election eligibility expert. Provide a detailed, structured eligibility report using markdown (bolding, lists, etc.). Be professional and authoritative. Use bold headers for sections.",
       }
     });
     return response.text;
   } catch (error) {
+    console.error("Eligibility analysis error:", error);
     return "Could not determine eligibility at this time.";
   }
 }
